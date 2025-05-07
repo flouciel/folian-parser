@@ -1,222 +1,210 @@
 package epub
 
 import (
-"archive/zip"
-"fmt"
-"io"
-"os"
-"path/filepath"
-"strings"
+	"archive/zip"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 
-"github.com/flouciel/folian-parser/internal/parser"
-"github.com/flouciel/folian-parser/internal/restructure"
+	"github.com/flouciel/folian-parser/internal/parser"
+	"github.com/flouciel/folian-parser/internal/restructure"
 )
 
-// Processor handles the processing of EPUB files
-type Processor struct{}
+// Processor handles the EPUB processing workflow
+type Processor struct {
+	parser      *parser.EPUBParser
+	restructure *restructure.Restructurer
+}
 
 // NewProcessor creates a new EPUB processor
 func NewProcessor() *Processor {
-return &Processor{}
+	return &Processor{
+		parser:      parser.NewEPUBParser(),
+		restructure: restructure.NewRestructurer(),
+	}
 }
 
-// Process processes an EPUB file
+// Process takes an input EPUB file, restructures it, and saves it to the output path
 func (p *Processor) Process(inputPath, outputPath string) error {
-// Create a temporary directory
-tempDir, err := os.MkdirTemp("", "epub-restructure-*")
-if err != nil {
-return fmt.Errorf("failed to create temporary directory: %w", err)
-}
-defer os.RemoveAll(tempDir)
+	// Create a temporary directory for extraction
+	tempDir, err := os.MkdirTemp("", "epub-restructure-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
 
-// Extract the EPUB file
-extractedPath, err := p.extractEPUB(inputPath, tempDir)
-if err != nil {
-return fmt.Errorf("failed to extract EPUB: %w", err)
-}
+	// Extract the EPUB file
+	extractedPath, err := p.extractEPUB(inputPath, tempDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract EPUB: %w", err)
+	}
 
-// Parse the EPUB content
-book, err := parser.ParseEPUB(extractedPath)
-if err != nil {
-return fmt.Errorf("failed to parse EPUB: %w", err)
-}
+	// Parse the EPUB content
+	book, err := p.parser.Parse(extractedPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse EPUB: %w", err)
+	}
 
-// Restructure the EPUB
-restructurer := restructure.NewRestructurer()
-restructuredPath, err := restructurer.Restructure(book, tempDir)
-if err != nil {
-return fmt.Errorf("failed to restructure EPUB: %w", err)
-}
+	// Restructure the EPUB
+	restructuredPath, err := p.restructure.Restructure(book, tempDir)
+	if err != nil {
+		return fmt.Errorf("failed to restructure EPUB: %w", err)
+	}
 
-// Create the new EPUB file
-if err := p.createEPUB(restructuredPath, outputPath); err != nil {
-return fmt.Errorf("failed to create EPUB: %w", err)
-}
+	// Create the new EPUB file
+	err = p.createEPUB(restructuredPath, outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output EPUB: %w", err)
+	}
 
-return nil
+	return nil
 }
 
 // extractEPUB extracts the EPUB file to a temporary directory
 func (p *Processor) extractEPUB(epubPath, tempDir string) (string, error) {
-// Open the EPUB file (which is a ZIP archive)
-reader, err := zip.OpenReader(epubPath)
-if err != nil {
-return "", fmt.Errorf("failed to open EPUB file: %w", err)
-}
-defer reader.Close()
+	// Open the EPUB file (which is a ZIP archive)
+	reader, err := zip.OpenReader(epubPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open EPUB file: %w", err)
+	}
+	defer reader.Close()
 
-// Create a directory for the extracted content
-extractPath := filepath.Join(tempDir, "extracted")
-if err := os.MkdirAll(extractPath, 0755); err != nil {
-return "", fmt.Errorf("failed to create extraction directory: %w", err)
-}
+	// Create a directory for the extracted content
+	extractPath := filepath.Join(tempDir, "extracted")
+	if err := os.MkdirAll(extractPath, 0755); err != nil {
+		return "", fmt.Errorf("failed to create extraction directory: %w", err)
+	}
 
-// Extract all files
-for _, file := range reader.File {
-// Prevent path traversal attacks
-filePath := filepath.Join(extractPath, file.Name)
-if !strings.HasPrefix(filePath, filepath.Clean(extractPath)+string(os.PathSeparator)) {
-return "", fmt.Errorf("illegal file path: %s", file.Name)
-}
+	// Extract all files
+	for _, file := range reader.File {
+		// Validate file path to prevent path traversal
+		filePath := filepath.Join(extractPath, file.Name)
+		if !strings.HasPrefix(filePath, extractPath) {
+			return "", fmt.Errorf("invalid file path (potential path traversal attack): %s", file.Name)
+		}
 
-// Create directory structure if needed
-if file.FileInfo().IsDir() {
-os.MkdirAll(filePath, 0755)
-continue
-}
+		// Create directory structure if needed
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(filePath, 0755); err != nil {
+				return "", fmt.Errorf("failed to create directory: %w", err)
+			}
+			continue
+		}
 
-// Ensure the directory exists
-if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-return "", fmt.Errorf("failed to create directory: %w", err)
-}
+		// Ensure the directory exists
+		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+			return "", fmt.Errorf("failed to create directory: %w", err)
+		}
 
-// Extract the file
-srcFile, err := file.Open()
-if err != nil {
-return "", fmt.Errorf("failed to open file in archive: %w", err)
-}
+		// Extract the file
+		srcFile, err := file.Open()
+		if err != nil {
+			return "", fmt.Errorf("failed to open file in archive: %w", err)
+		}
+		defer srcFile.Close()
 
-dstFile, err := os.Create(filePath)
-if err != nil {
-srcFile.Close()
-return "", fmt.Errorf("failed to create file: %w", err)
-}
+		dstFile, err := os.Create(filePath)
+		if err != nil {
+			srcFile.Close()
+			return "", fmt.Errorf("failed to create file: %w", err)
+		}
+		defer dstFile.Close()
 
-// Limit the size of extracted files to prevent zip bombs
-const maxSize = 100 * 1024 * 1024 // 100MB limit
-_, err = io.CopyN(dstFile, srcFile, maxSize)
-if err != nil && err != io.EOF {
-srcFile.Close()
-dstFile.Close()
-return "", fmt.Errorf("failed to extract file or file too large: %w", err)
-}
+		// Limit the size of extracted files to prevent zip bombs
+		const maxSize = 100 * 1024 * 1024 // 100MB limit per file
+		_, err = io.CopyN(dstFile, srcFile, maxSize)
+		if err != nil && err != io.EOF {
+			return "", fmt.Errorf("failed to extract file or file too large: %w", err)
+		}
+	}
 
-srcFile.Close()
-dstFile.Close()
-}
-
-return extractPath, nil
+	return extractPath, nil
 }
 
 // createEPUB creates a new EPUB file from the restructured content
-func (p *Processor) createEPUB(restructuredPath, outputPath string) error {
-// Create the output directory if it doesn't exist
-outputDir := filepath.Dir(outputPath)
-if err := os.MkdirAll(outputDir, 0755); err != nil {
-return fmt.Errorf("failed to create output directory: %w", err)
-}
+func (p *Processor) createEPUB(contentPath, outputPath string) error {
+	// Create the output directory if it doesn't exist
+	outputDir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
 
-// Create a new ZIP file
-zipFile, err := os.Create(outputPath)
-if err != nil {
-return fmt.Errorf("failed to create output file: %w", err)
-}
-defer zipFile.Close()
+	// Create the output file
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outputFile.Close()
 
-// Create a new ZIP writer
-zipWriter := zip.NewWriter(zipFile)
-defer zipWriter.Close()
+	// Create a new ZIP writer
+	zipWriter := zip.NewWriter(outputFile)
+	defer zipWriter.Close()
 
-// Add the mimetype file first (uncompressed)
-mimetypePath := filepath.Join(restructuredPath, "mimetype")
-if err := p.addFileToZip(zipWriter, mimetypePath, "mimetype", false); err != nil {
-return fmt.Errorf("failed to add mimetype to ZIP: %w", err)
-}
+	// Add mimetype file first (must be uncompressed and first in the archive)
+	mimetypeWriter, err := zipWriter.CreateHeader(&zip.FileHeader{
+		Name:   "mimetype",
+		Method: zip.Store, // No compression for mimetype
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create mimetype entry: %w", err)
+	}
+	_, err = mimetypeWriter.Write([]byte("application/epub+zip"))
+	if err != nil {
+		return fmt.Errorf("failed to write mimetype: %w", err)
+	}
 
-// Walk the restructured directory and add all files to the ZIP
-err = filepath.Walk(restructuredPath, func(path string, info os.FileInfo, err error) error {
-if err != nil {
-return err
-}
+	// Walk through the restructured content and add all files to the ZIP
+	err = filepath.Walk(contentPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
-// Skip directories and the mimetype file (already added)
-if info.IsDir() || path == mimetypePath {
-return nil
-}
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
 
-// Get the relative path
-relPath, err := filepath.Rel(restructuredPath, path)
-if err != nil {
-return fmt.Errorf("failed to get relative path: %w", err)
-}
+		// Get the relative path for the ZIP entry
+		relPath, err := filepath.Rel(contentPath, path)
+		if err != nil {
+			return fmt.Errorf("failed to get relative path: %w", err)
+		}
 
-// Add the file to the ZIP
-if err := p.addFileToZip(zipWriter, path, relPath, true); err != nil {
-return fmt.Errorf("failed to add file to ZIP: %w", err)
-}
+		// Normalize path separators to forward slashes for EPUB
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
 
-return nil
-})
+		// Skip the mimetype file as we've already added it
+		if relPath == "mimetype" {
+			return nil
+		}
 
-if err != nil {
-return fmt.Errorf("failed to walk restructured directory: %w", err)
-}
+		// Create a new file in the ZIP
+		writer, err := zipWriter.Create(relPath)
+		if err != nil {
+			return fmt.Errorf("failed to create ZIP entry: %w", err)
+		}
 
-return nil
-}
+		// Open the source file
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open file: %w", err)
+		}
+		defer file.Close()
 
-// addFileToZip adds a file to the ZIP archive
-func (p *Processor) addFileToZip(zipWriter *zip.Writer, filePath, zipPath string, compress bool) error {
-// Open the file
-file, err := os.Open(filePath)
-if err != nil {
-return fmt.Errorf("failed to open file: %w", err)
-}
-defer file.Close()
+		// Copy the file content to the ZIP
+		_, err = io.Copy(writer, file)
+		if err != nil {
+			return fmt.Errorf("failed to write file to ZIP: %w", err)
+		}
 
-// Get the file info
-info, err := file.Stat()
-if err != nil {
-return fmt.Errorf("failed to get file info: %w", err)
-}
+		return nil
+	})
 
-// Create a ZIP header
-header, err := zip.FileInfoHeader(info)
-if err != nil {
-return fmt.Errorf("failed to create ZIP header: %w", err)
-}
+	if err != nil {
+		return fmt.Errorf("failed to add files to EPUB: %w", err)
+	}
 
-// Set the ZIP path
-header.Name = zipPath
-
-// Set the compression method
-if compress {
-header.Method = zip.Deflate
-} else {
-header.Method = zip.Store
-}
-
-// Create a writer for the file
-writer, err := zipWriter.CreateHeader(header)
-if err != nil {
-return fmt.Errorf("failed to create ZIP writer: %w", err)
-}
-
-// Copy the file content
-_, err = io.Copy(writer, file)
-if err != nil {
-return fmt.Errorf("failed to copy file content: %w", err)
-}
-
-return nil
+	return nil
 }
