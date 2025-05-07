@@ -16,19 +16,7 @@ Folian Parser is a command-line tool that restructures EPUB files by:
 ## Installation
 
 ```bash
-go install github.com/flouciel/folian-parser@latest
-```
-
-Or install a specific version:
-
-```bash
-go install github.com/flouciel/folian-parser@v0.1.5
-```
-
-For older Go versions that require the full path:
-
-```bash
-go install github.com/flouciel/folian-parser/cmd/folian-parser@v0.1.5
+go get github.com/flouciel/folian-parser@latest
 ```
 
 Or clone the repository and build it manually:
@@ -36,7 +24,7 @@ Or clone the repository and build it manually:
 ```bash
 git clone https://github.com/flouciel/folian-parser.git
 cd folian-parser
-go build -o folian-parser ./cmd/folian-parser
+go build -o folian-parser
 ```
 
 ## Usage
