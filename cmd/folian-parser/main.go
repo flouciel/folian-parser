@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/flouciel/folian-parser/internal/epub"
+    "github.com/flouciel/folian-parser/internal/parser"
+    "github.com/flouciel/folian-parser/internal/restructure"
 )
 
 // Main is the entry point for the folian-parser command
