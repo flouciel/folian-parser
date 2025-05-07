@@ -22,13 +22,13 @@ go install github.com/flouciel/folian-parser@latest
 Or install a specific version:
 
 ```bash
-go install github.com/flouciel/folian-parser@v0.1.1
+go install github.com/flouciel/folian-parser@v0.1.3
 ```
 
 For older Go versions that require the full path:
 
 ```bash
-go install github.com/flouciel/folian-parser/cmd/folian-parser@v0.1.1
+go install github.com/flouciel/folian-parser/cmd/folian-parser@v0.1.3
 ```
 
 Or clone the repository and build it manually:
