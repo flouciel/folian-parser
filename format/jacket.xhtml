@@ -1,0 +1,99 @@
+<?xml version='1.0' encoding='utf-8'?>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <title>{{BOOK_TITLE}}</title>
+  <link href="styles/stylesheet.css" rel="stylesheet" type="text/css"/>
+  <style>
+  @font-face {
+    font-family: Jura;
+    src: url(../fonts/jura.ttf);
+  }
+  @page {
+    margin: 0;
+    padding: 0;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f8f8f8;
+    color: #333;
+    font-family: serif;
+    overflow: hidden;
+  }
+  .book-cover {
+    width: 90vw;
+    height: 90vh;
+    max-width: 600px;
+    background: white;
+    padding: 60px 50px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    text-align: center;
+    position: relative;
+  }
+  .logo-container {
+    margin: 15px auto 50px;
+    width: 100px;
+    height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+  }
+  .logo {
+    max-width: 70%;
+    max-height: 70%;
+  }
+  .title {
+    font-size: 48px;
+    font-family: "Jura", monospace;
+    font-weight: 200;
+    letter-spacing: 4px;
+    margin: 20px 0 15px;
+    line-height: 1.3;
+  }
+  .subtitle {
+    font-size: 16px;
+    color: #777;
+    font-weight: 300;
+    margin-bottom: 60px;
+    font-style: italic;
+    letter-spacing: 1px;
+  }
+  .author {
+    font-size: 32px;
+    font-family: "Jura", serif;
+    color: #555;
+    margin-top: auto;
+    padding-top: 60px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    position: relative;
+  }
+  .footer {
+    font-size: 11px;
+    color: #999;
+    margin-top: 20px;
+    letter-spacing: 1px;
+  }
+  </style>
+</head>
+<body>
+  <div class="book-cover">
+    <div class="logo-container">
+      <img src="../images/folian.png" alt="Folian Logo" class="logo"/>
+    </div>
+    <div class="title">{{BOOK_TITLE}}</div>
+    <div class="subtitle">{{BOOK_SUBTITLE}}</div>
+    <div class="author">{{BOOK_AUTHOR}}</div>
+    <div class="footer">ebook@folian</div>
+  </div>
+</body>
+</html>
