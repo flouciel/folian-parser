@@ -14,6 +14,9 @@ import (
 // FormatDirPath is the path to the format directory containing templates and assets
 var FormatDirPath = filepath.Join("format")
 
+// DebugMode enables debug output
+var DebugMode bool
+
 // Restructurer handles the restructuring of EPUB content
 type Restructurer struct{}
 
@@ -334,8 +337,14 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 
 		jacketContent = []byte(jacketContentStr)
 
-		if err := ioutil.WriteFile(filepath.Join(oebpsPath, "jacket.xhtml"), jacketContent, 0644); err != nil {
+		outputJacketPath := filepath.Join(oebpsPath, "jacket.xhtml")
+		if err := ioutil.WriteFile(outputJacketPath, jacketContent, 0644); err != nil {
 			return fmt.Errorf("failed to create jacket.xhtml: %w", err)
+		}
+
+		if DebugMode {
+			fmt.Printf("Created jacket.xhtml at %s\n", outputJacketPath)
+			fmt.Printf("Jacket content preview: %s\n", jacketContentStr[:100]+"...")
 		}
 
 		// Copy Folian logo if it exists
@@ -750,8 +759,15 @@ func (r *Restructurer) createNavDocument(book *parser.Book, oebpsPath string) er
 	navContent = strings.Replace(navContent, "{{TOC_ENTRIES}}", tocEntries.String(), -1)
 
 	// Write the nav.xhtml file
-	if err := ioutil.WriteFile(filepath.Join(oebpsPath, "nav.xhtml"), []byte(navContent), 0644); err != nil {
+	navPath := filepath.Join(oebpsPath, "nav.xhtml")
+	if err := ioutil.WriteFile(navPath, []byte(navContent), 0644); err != nil {
 		return fmt.Errorf("failed to write nav.xhtml: %w", err)
+	}
+
+	if DebugMode {
+		fmt.Printf("Created nav.xhtml at %s\n", navPath)
+		fmt.Printf("Nav content preview: %s\n", navContent[:100]+"...")
+		fmt.Printf("Number of TOC entries: %d\n", len(book.Chapters))
 	}
 
 	return nil

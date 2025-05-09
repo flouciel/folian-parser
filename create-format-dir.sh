@@ -51,7 +51,7 @@ cat > "$FORMAT_DIR/titlepage.xhtml" << 'EOF'
          version="1.1"
          viewBox="0 0 1038 1380"
          preserveAspectRatio="xMidYMid meet">
-        <image width="1038" height="1380" xlink:href="images/cover.jpg"/>
+        <image width="1038" height="1380" xlink:href="images/cover.jpeg"/>
     </svg>
 </body>
 </html>
@@ -64,99 +64,135 @@ cat > "$FORMAT_DIR/jacket.xhtml" << 'EOF'
 <head>
   <title>{{BOOK_TITLE}}</title>
   <link href="styles/stylesheet.css" rel="stylesheet" type="text/css"/>
-  <style>
-  @font-face {
-    font-family: Jura;
-    src: url(../fonts/jura.ttf);
-  }
-  @page {
-    margin: 0;
-    padding: 0;
-  }
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: #f8f8f8;
-    color: #333;
-    font-family: serif;
-    overflow: hidden;
-  }
-  .book-cover {
-    width: 90vw;
-    height: 90vh;
-    max-width: 600px;
-    background: white;
-    padding: 60px 50px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    text-align: center;
-    position: relative;
-  }
-  .logo-container {
-    margin: 15px auto 50px;
-    width: 100px;
-    height: 100px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-  }
-  .logo {
-    max-width: 70%;
-    max-height: 70%;
-  }
-  .title {
-    font-size: 48px;
-    font-family: "Jura", monospace;
-    font-weight: 200;
-    letter-spacing: 4px;
-    margin: 20px 0 15px;
-    line-height: 1.3;
-  }
-  .subtitle {
-    font-size: 16px;
-    color: #777;
-    font-weight: 300;
-    margin-bottom: 60px;
-    font-style: italic;
-    letter-spacing: 1px;
-  }
-  .author {
-    font-size: 32px;
-    font-family: "Jura", serif;
-    color: #555;
-    margin-top: auto;
-    padding-top: 60px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    position: relative;
-  }
-  .footer {
-    font-size: 11px;
-    color: #999;
-    margin-top: 20px;
-    letter-spacing: 1px;
-  }
-  </style>
-</head>
-<body>
+    <style type="text/css">
+      @font-face {
+        font-family: "Jura";
+        src: url("fonts/jura.ttf");
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      body {
+        margin: 5%;
+        padding: 0;
+        background-color: #ffffff;
+        font-family: "Jura", serif;
+        color: #333;
+        text-align: center;
+      }
+
+      .book-cover {
+        margin: 0 auto;
+        max-width: 100%;
+        text-align: center;
+        padding: 2em 0;
+        min-height: 90vh; /* Make the cover take up most of the viewport height */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .logo {
+        width: 100px;
+        height: auto;
+        max-width: 100%;
+        margin-bottom: 2em;
+      }
+
+      .title {
+        font-size: 2em;
+        font-family: "Jura", sans-serif;
+        text-align: center;
+        letter-spacing: 2px;
+        margin: 1em 0 0.5em;
+        font-weight: bold;
+      }
+
+      .subtitle {
+        font-size: 1.2em;
+        color: #555;
+        font-style: italic;
+        letter-spacing: 1px;
+        margin-bottom: 1.5em;
+      }
+
+      .author {
+        font-size: 1.2em;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 0;
+        padding-bottom: 0.3em;
+      }
+
+      .content {
+        margin: 2em 0;
+        flex-grow: 1;
+      }
+
+      .bottom-content {
+        margin-top: auto; /* Push to the bottom when using flexbox */
+        padding-bottom: 1em; /* Add some padding at the bottom */
+      }
+
+      .footer {
+        font-size: 0.8em;
+        color: #777;
+        letter-spacing: 1px;
+        text-align: center;
+        margin-top: 0.5em; /* Reduced space between author and footer */
+      }
+
+      /* For e-readers that don't support flexbox */
+      @supports not (display: flex) {
+        .book-cover {
+          position: relative;
+          min-height: 90vh;
+        }
+
+        .bottom-content {
+          position: absolute;
+          bottom: 1em;
+          left: 0;
+          right: 0;
+        }
+
+        .content {
+          margin-bottom: 8em; /* Ensure content doesn't overlap with bottom content in fallback mode */
+        }
+      }
+
+      /* Media queries for better responsiveness */
+      @media screen and (max-width: 600px) {
+        .title {
+          font-size: 1.5em;
+        }
+
+        .subtitle, .author {
+          font-size: 1em;
+        }
+
+        .logo {
+          width: 80px;
+        }
+      }
+    </style>
+  </head>
+<body class="cover">
   <div class="book-cover">
-    <div class="logo-container">
-      <img src="../images/folian.png" alt="Folian Logo" class="logo"/>
+    <div class="content">
+      <div class="logo-container">
+        <img src="../images/folian.png" alt="Folian Logo" class="logo"/>
+      </div>
+      <h1 class="title">{{BOOK_TITLE}}</h1>
+      <div class="subtitle">{{BOOK_SUBTITLE}}</div>
     </div>
-    <div class="title">{{BOOK_TITLE}}</div>
-    <div class="subtitle">{{BOOK_SUBTITLE}}</div>
-    <div class="author">{{BOOK_AUTHOR}}</div>
-    <div class="footer">ebook@folian</div>
+    <div class="bottom-content">
+      <div class="author">{{BOOK_AUTHOR}}</div>
+      <div class="footer">ebook@folian</div>
+    </div>
   </div>
-</body>
+  </body>
 </html>
 EOF
 
@@ -348,8 +384,17 @@ li {
 EOF
 
 echo "Format directory created successfully at: $FORMAT_DIR"
-echo "Note: You should replace the placeholder files with actual font and logo files."
-echo "Usage: folian-parser -i input.epub -format $FORMAT_DIR"
+echo ""
+echo "Next steps:"
+echo "1. Replace placeholder files with actual files:"
+echo "   - Replace $FORMAT_DIR/jura.ttf with the actual Jura font file"
+echo "   - Replace $FORMAT_DIR/folian.png with your actual logo"
+echo ""
+echo "2. Run the Folian Parser tool:"
+echo "   ./folian-parser -i your-book.epub -o your-book-fixed.epub"
+echo ""
+echo "For custom format directory:"
+echo "   ./folian-parser -i your-book.epub -o your-book-fixed.epub -f $FORMAT_DIR"
 
 # Make the script executable
 chmod +x create-format-dir.sh

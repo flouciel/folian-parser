@@ -11,6 +11,11 @@ import (
 	"github.com/flouciel/folian-parser/internal/restructure"
 )
 
+// Version information
+const (
+	Version = "0.2.3"
+)
+
 // ensureFormatDirectory ensures that the format directory exists and contains all necessary files
 func ensureFormatDirectory(formatDir string) error {
 	// Check if the format directory exists
@@ -31,6 +36,7 @@ func ensureFormatDirectory(formatDir string) error {
 			"stylesheet.css",
 			"titlepage.xhtml",
 			"jacket.xhtml",
+			"nav.xhtml",
 			"jura.ttf",
 			"folian.png",
 		}
@@ -55,11 +61,22 @@ func main() {
 	// Parse command-line arguments
 	inputPath := flag.String("i", "", "Input EPUB file path")
 	outputPath := flag.String("o", "", "Output EPUB file path")
-	formatDir := flag.String("format", "format", "Path to the format directory containing templates and assets")
+	formatDir := flag.String("f", "format", "Path to the format directory containing templates and assets")
+	versionFlag := flag.Bool("v", false, "Display version information")
+	debugFlag := flag.Bool("d", false, "Enable debug output")
 	flag.Parse()
+
+	// Display version information if requested
+	if *versionFlag {
+		fmt.Printf("Folian Parser version %s\n", Version)
+		os.Exit(0)
+	}
 
 	// Set the format directory path
 	restructure.FormatDirPath = *formatDir
+
+	// Set debug mode
+	restructure.DebugMode = *debugFlag
 
 	// Ensure the format directory exists and contains all necessary files
 	if err := ensureFormatDirectory(*formatDir); err != nil {

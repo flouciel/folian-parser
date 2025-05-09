@@ -17,7 +17,7 @@ Folian Parser is a command-line tool that restructures EPUB files by:
 ## Installation
 
 ```bash
-go get github.com/flouciel/folian-parser@latest
+go install github.com/flouciel/folian-parser@latest
 ```
 
 Or clone the repository and build it manually:
@@ -31,8 +31,16 @@ go build -o folian-parser
 ## Usage
 
 ```bash
-folian-parser -i input.epub -o output.epub
+folian-parser -i input.epub -o output.epub [-f path/to/format/directory] [-v] [-d]
 ```
+
+### Command-line Options
+
+- `-i`: Input EPUB file path (required)
+- `-o`: Output EPUB file path (optional, defaults to input-fixed.epub)
+- `-f`: Path to the format directory (optional, defaults to "format")
+- `-v`: Display version information and exit
+- `-d`: Enable debug output to verify file creation
 
 If the output path is not provided, the tool will generate one based on the input path:
 
@@ -44,7 +52,7 @@ folian-parser -i input.epub
 You can specify a custom format directory containing templates and assets:
 
 ```bash
-folian-parser -i input.epub -format /path/to/format/directory
+folian-parser -i input.epub -f /path/to/format/directory
 ```
 
 ### Format Directory
@@ -118,32 +126,64 @@ The restructured EPUB will have the following structure:
     └── toc.ncx
 ```
 
-## Quick Start Guide
+## Workflow
 
-Follow these steps to get started with Folian Parser:
+The Folian Parser workflow consists of three main steps:
 
-1. **Build the tool**:
-   ```bash
-   go build -o folian-parser
-   ```
+1. **Create the format directory** with templates and assets
+2. **Replace placeholder files** with actual font and logo files
+3. **Run the tool** to process EPUB files
 
-2. **Create the format directory**:
-   ```bash
-   ./create-format-dir.sh
-   ```
+### Step 1: Create the Format Directory
 
-3. **Replace placeholder files**:
-   - Replace `format/jura.ttf` with the actual Jura font file
-   - Replace `format/folian.png` with your logo
+Run the included script to create the format directory:
 
-4. **Process an EPUB file**:
-   ```bash
-   ./folian-parser -i your-book.epub -o your-book-fixed.epub
-   ```
+```bash
+./create-format-dir.sh
+```
 
-5. **Verify the output**:
-   - Check the generated EPUB file in your e-reader or EPUB viewer
-   - Ensure the styling, navigation, and structure are as expected
+This will create a `format` directory in the current location with all necessary template files.
+
+For a custom location:
+
+```bash
+./create-format-dir.sh /path/to/custom/format
+```
+
+### Step 2: Replace Placeholder Files
+
+The script creates placeholder files that you should replace:
+
+- Replace `format/jura.ttf` with the actual Jura font file
+- Replace `format/folian.png` with your actual logo
+
+You can also customize the templates and stylesheet to match your requirements.
+
+### Step 3: Run the Tool
+
+Process an EPUB file using the format directory:
+
+```bash
+./folian-parser -i your-book.epub -o your-book-fixed.epub
+```
+
+For a custom format directory:
+
+```bash
+./folian-parser -i your-book.epub -o your-book-fixed.epub -f /path/to/custom/format
+```
+
+To verify that the jacket.xhtml and nav.xhtml files are correctly created, use the debug flag:
+
+```bash
+./folian-parser -i your-book.epub -o your-book-fixed.epub -d
+```
+
+### Step 4: Verify the Output
+
+- Check the generated EPUB file in your e-reader or EPUB viewer
+- Ensure the styling, navigation, and structure are as expected
+- Verify that the templates have been properly applied
 
 ## License
 
