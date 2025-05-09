@@ -11,6 +11,9 @@ import (
 	"github.com/flouciel/folian-parser/internal/parser"
 )
 
+// FormatDirPath is the path to the format directory containing templates and assets
+var FormatDirPath = filepath.Join("format")
+
 // Restructurer handles the restructuring of EPUB content
 type Restructurer struct{}
 
@@ -114,6 +117,11 @@ func (r *Restructurer) processContent(book *parser.Book, restructuredPath string
 		return fmt.Errorf("failed to process chapters: %w", err)
 	}
 
+	// Create nav.xhtml
+	if err := r.createNavDocument(book, oebpsPath); err != nil {
+		return fmt.Errorf("failed to create nav.xhtml: %w", err)
+	}
+
 	// Create content.opf
 	if err := r.createContentOPF(book, oebpsPath); err != nil {
 		return fmt.Errorf("failed to create content.opf: %w", err)
@@ -129,170 +137,31 @@ func (r *Restructurer) processContent(book *parser.Book, restructuredPath string
 
 // processStylesheets processes and copies stylesheets
 func (r *Restructurer) processStylesheets(book *parser.Book, basePath, oebpsPath string) error {
-	// Define the content of the stylesheet
-	stylesheetContent := `@page {
-    margin-bottom: 5pt;
-    margin-top: 5pt;
-  }
-  @font-face {
-    font-family: Jura;
-    src: url(../fonts/jura.ttf);
-  }
-  /* Styles for Folian books */
-  h1 {
-    text-align: center;
-    font-size: 2.5em;
-    font-family: "Jura", serif;
-    margin: 3em auto 0 auto;
-  }
-  h2 {
-    text-align: left;
-    text-indent: 5%;
-    font-size: 1.7em;
-    font-family: "Jura", serif;
-    margin: 2em auto 1em auto;
-  }
-  h3 {
-    text-align: center;
-    font-size: 1.5em;
-    font-family: serif;
-    margin: 1em auto 1em auto;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1em 0;
-  }
-  th, td {
-    padding: 0.5em;
-    border: 1px solid #ccc;
-    text-align: left;
-    vertical-align: top;
-  }
-  th {
-    background-color: #f0f0f0;
-  }
-  p {
-    text-indent: 5%;
-    text-align: justify;
-    line-height: 1.5;
-  }
-  p.nonindent {
-    text-indent: 0;
-  }
-  p.sans-serif {
-    font-family: sans-serif;
-  }
-  p.center {
-    text-indent: 0;
-    text-align: center;
-  }
-  p.right {
-    text-indent: 0;
-    text-align: right;
-  }
-  p.poem {
-    text-indent: 0;
-    margin-left: 15%;
-    font-size: 0.9em;
-  }
-  p.serif {
-    font-family: serif;
-  }
-  hr {
-    border: 1px solid;
-    width: 40%;
-    border-radius: 1px;
-    margin-top: 2em;
-    margin-bottom: 2em;
-  }
-  blockquote {
-    margin: 2em 0 2em 5%;
-  }
-  blockquote > p {
-    text-indent: 0;
-    font-family: monospace;
-  }
-  p.pagebreak {
-    display: block;
-    page-break-after: always;
-  }
-  p.title {
-    font-size: 1.7em;
-  }
-  p.author {
-    font-size: 1.5em;
-  }
-  p.series {
-    font-size: 0.9em;
-  }
-  p.quote {
-    margin-left: 5%;
-  }
-  div.box {
-    margin: 2em 5% 2em 5%;
-  }
-  div.box > p {
-    font-family: sans-serif;
-    font-size: 0.8em;
-  }
-  div.computer > p {
-    font-family: monospace;
-    font-size: 0.9em;
-  }
-  div.info {
-    margin-top: 2em;
-  }
-  div.info p {
-    text-indent: 0;
-    text-align: center;
-    font-family: serif;
-    line-height: 1.5;
-  }
-  sup {
-    font-size: 80%;
-  }
-  a {
-    text-decoration: none;
-  }
-  a:hover {
-    color: red;
-  }
-  td {
-    font-family: monospace;
-    font-size: 0.9em;
-  }
-  ul {
-    list-style-type: disc;
-    /* classic bullet point */
-    padding-left: 1.5rem;
-    /* spacing from the left */
-    margin-bottom: 1rem;
-  }
-  li {
-    margin-bottom: 0.5rem;
-    /* space between list items */
-    font-size: 1rem;
-    color: #333;
-  }`
+	// Read the stylesheet from the format directory
+	stylesheetPath := filepath.Join(FormatDirPath, "stylesheet.css")
+	stylesheetContent, err := ioutil.ReadFile(stylesheetPath)
+	if err != nil {
+		return fmt.Errorf("failed to read stylesheet from format directory: %w", err)
+	}
 
 	// Write the stylesheet
 	stylesPath := filepath.Join(oebpsPath, "styles")
-	if err := ioutil.WriteFile(filepath.Join(stylesPath, "stylesheet.css"), []byte(stylesheetContent), 0644); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(stylesPath, "stylesheet.css"), stylesheetContent, 0644); err != nil {
 		return fmt.Errorf("failed to create stylesheet: %w", err)
 	}
 
 	// Copy the Jura font from the format directory
-	fontPath := filepath.Join("/Users/4azy/lune/code/pub/format/jura.ttf")
+	fontPath := filepath.Join(FormatDirPath, "jura.ttf")
 	fontData, err := ioutil.ReadFile(fontPath)
 	if err != nil {
-		return fmt.Errorf("failed to read Jura font: %w", err)
-	}
-
-	// Write the font to the fonts directory
-	fontsPath := filepath.Join(oebpsPath, "fonts")
-	if err := ioutil.WriteFile(filepath.Join(fontsPath, "jura.ttf"), fontData, 0644); err != nil {
-		return fmt.Errorf("failed to write Jura font: %w", err)
+		fmt.Printf("Warning: Could not read Jura font: %v\n", err)
+		// Continue without the font
+	} else {
+		// Write the font to the fonts directory
+		fontsPath := filepath.Join(oebpsPath, "fonts")
+		if err := ioutil.WriteFile(filepath.Join(fontsPath, "jura.ttf"), fontData, 0644); err != nil {
+			return fmt.Errorf("failed to write Jura font: %w", err)
+		}
 	}
 
 	return nil
@@ -345,10 +214,61 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 	// Process cover image if it exists
 	var coverFilename string
 	if book.CoverImage != "" {
+		// Extract the base filename of the cover image
+		coverImageBase := filepath.Base(book.CoverImage)
+
+		// Try to find the cover image in the extracted directory
+		// First, try the path as specified in the manifest
 		fullPath := filepath.Join(basePath, book.CoverImage)
 		content, err := ioutil.ReadFile(fullPath)
+
+		// If that fails, try looking in the OEBPS directory
 		if err != nil {
-			return fmt.Errorf("failed to read cover image %s: %w", book.CoverImage, err)
+			fullPath = filepath.Join(filepath.Dir(basePath), "OEBPS", book.CoverImage)
+			content, err = ioutil.ReadFile(fullPath)
+
+			// If that fails, try looking in the OEBPS/images directory
+			if err != nil {
+				fullPath = filepath.Join(filepath.Dir(basePath), "OEBPS", "images", coverImageBase)
+				content, err = ioutil.ReadFile(fullPath)
+
+				// If that fails, try looking directly in the extracted directory
+				if err != nil {
+					fullPath = filepath.Join(filepath.Dir(basePath), coverImageBase)
+					content, err = ioutil.ReadFile(fullPath)
+
+					// If all attempts fail, search for any file with the same name
+					if err != nil {
+						// Search for the cover image in the entire extracted directory
+						extractedDir := filepath.Dir(basePath)
+						fmt.Printf("Searching for cover image %s in %s\n", coverImageBase, extractedDir)
+
+						// Use filepath.Walk to search for the file
+						var coverPath string
+						filepath.Walk(extractedDir, func(path string, info os.FileInfo, err error) error {
+							if err != nil {
+								return nil
+							}
+							if !info.IsDir() && filepath.Base(path) == coverImageBase {
+								coverPath = path
+								return filepath.SkipDir // Stop walking once we find the file
+							}
+							return nil
+						})
+
+						// If we found the file, read it
+						if coverPath != "" {
+							fullPath = coverPath
+							content, err = ioutil.ReadFile(fullPath)
+						}
+
+						// If we still can't find the file, return an error
+						if err != nil {
+							return fmt.Errorf("failed to find cover image %s: %w", book.CoverImage, err)
+						}
+					}
+				}
+			}
 		}
 
 		// Write the cover image
@@ -359,177 +279,67 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 		}
 
 		// Create titlepage.xhtml from template
-		titlePagePath := filepath.Join("/Users/4azy/lune/code/pub/format/titlepage.xhtml")
+		titlePagePath := filepath.Join(FormatDirPath, "titlepage.xhtml")
 		titlePageContent, err := ioutil.ReadFile(titlePagePath)
 		if err != nil {
-			fmt.Printf("Warning: Could not read titlepage template: %v\n", err)
-			// Create a basic titlepage
-			titlePageContent = []byte(fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <meta name="calibre:cover" content="true"/>
-    <title>Cover</title>
-    <style type="text/css" title="override_css">
-        @page {
-            margin: 0pt;
-            padding: 0pt;
-        }
-        html, body {
-            height: 100%%;
-            width: 100%%;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        svg {
-            max-width: 100%%;
-            max-height: 100%%;
-        }
-    </style>
-</head>
-<body>
-    <svg xmlns="http://www.w3.org/2000/svg"
-         xmlns:xlink="http://www.w3.org/1999/xlink"
-         version="1.1"
-         viewBox="0 0 1038 1380"
-         preserveAspectRatio="xMidYMid meet">
-        <image width="1038" height="1380" xlink:href="images/%s"/>
-    </svg>
-</body>
-</html>`, coverFilename))
-		} else {
-			// Replace the cover image reference
-			titlePageContentStr := string(titlePageContent)
-			titlePageContentStr = strings.Replace(titlePageContentStr,
-				`<image width="1038" height="1380" xlink:href="images/cover.jpg"/>`,
-				fmt.Sprintf(`<image width="1038" height="1380" xlink:href="images/%s"/>`, coverFilename),
-				-1)
-			titlePageContent = []byte(titlePageContentStr)
+			return fmt.Errorf("failed to read titlepage template from format directory: %w", err)
 		}
+
+		// Replace the cover image reference
+		titlePageContentStr := string(titlePageContent)
+		titlePageContentStr = strings.Replace(titlePageContentStr,
+			`<image width="1038" height="1380" xlink:href="images/cover.jpg"/>`,
+			fmt.Sprintf(`<image width="1038" height="1380" xlink:href="images/%s"/>`, coverFilename),
+			-1)
+		titlePageContent = []byte(titlePageContentStr)
 
 		if err := ioutil.WriteFile(filepath.Join(oebpsPath, "titlepage.xhtml"), titlePageContent, 0644); err != nil {
 			return fmt.Errorf("failed to create titlepage.xhtml: %w", err)
 		}
 
-		// Create jacket.html from template
-		jacketPath := filepath.Join("/Users/4azy/lune/code/pub/format/jacket.html")
+		// Create jacket.xhtml from template
+		jacketPath := filepath.Join(FormatDirPath, "jacket.xhtml")
 		jacketContent, err := ioutil.ReadFile(jacketPath)
 		if err != nil {
-			fmt.Printf("Warning: Could not read jacket template: %v\n", err)
-			// Create a basic jacket
-			title := book.Metadata.Title
-			if title == "" {
-				title = "Book Title"
-			}
-			author := book.Metadata.Creator
-			if author == "" {
-				author = "Author"
-			}
-
-			jacketContent = []byte(fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
-<head>
-  <title>%s</title>
-  <style>
-  @page {
-    margin: 0;
-    padding: 0;
-  }
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%%;
-    height: 100%%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: #f8f8f8;
-    color: #333;
-    font-family: serif;
-  }
-  .book-cover {
-    width: 90vw;
-    height: 90vh;
-    max-width: 600px;
-    background: white;
-    padding: 60px 50px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    text-align: center;
-  }
-  .title {
-    font-size: 32px;
-    font-family: monospace;
-    font-weight: 200;
-    letter-spacing: 4px;
-    margin: 20px 0 15px;
-    line-height: 1.3;
-  }
-  .author {
-    font-size: 14px;
-    font-family: serif;
-    color: #555;
-    margin-top: auto;
-    padding-top: 60px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-  </style>
-</head>
-<body>
-  <div class="book-cover">
-    <div class="title">%s</div>
-    <div class="author">%s</div>
-  </div>
-</body>
-</html>`, title, title, author))
-		} else {
-			// Extract book title, subtitle, and author from metadata
-			title := book.Metadata.Title
-			if title == "" {
-				title = "Book Title"
-			}
-
-			subtitle := ""
-
-			author := book.Metadata.Creator
-			if author == "" {
-				author = "Author"
-			}
-
-			// Replace title, subtitle, and author in jacket.html
-			jacketContentStr := string(jacketContent)
-			jacketContentStr = strings.Replace(jacketContentStr, "Giết Con Chim Nhại", title, -1)
-			jacketContentStr = strings.Replace(jacketContentStr, "Harper Lee", author, -1)
-
-			// Add subtitle if provided
-			if subtitle != "" {
-				// Look for the title div and add subtitle after it
-				titleDivRegex := regexp.MustCompile(`<div class="title">[^<]*</div>`)
-				if titleDivRegex.MatchString(jacketContentStr) {
-					subtitleDiv := fmt.Sprintf(`<div class="subtitle">%s</div>`, subtitle)
-					jacketContentStr = titleDivRegex.ReplaceAllStringFunc(jacketContentStr, func(match string) string {
-						return match + "\n    " + subtitleDiv
-					})
-				}
-			}
-
-			jacketContent = []byte(jacketContentStr)
+			return fmt.Errorf("failed to read jacket template from format directory: %w", err)
 		}
 
-		if err := ioutil.WriteFile(filepath.Join(oebpsPath, "jacket.html"), jacketContent, 0644); err != nil {
-			return fmt.Errorf("failed to create jacket.html: %w", err)
+		// Extract book title and author from metadata
+		title := book.Metadata.Title
+		if title == "" {
+			title = "Book Title"
+		}
+
+		author := book.Metadata.Creator
+		if author == "" {
+			author = "Author"
+		}
+
+		// Replace template variables in jacket.xhtml
+		jacketContentStr := string(jacketContent)
+		jacketContentStr = strings.Replace(jacketContentStr, "{{BOOK_TITLE}}", title, -1)
+		jacketContentStr = strings.Replace(jacketContentStr, "{{BOOK_AUTHOR}}", author, -1)
+
+		// Set a default subtitle or use a description if available
+		subtitle := "A Folian Book"
+		if book.Metadata.Description != "" {
+			// Use a shortened version of the description as subtitle
+			if len(book.Metadata.Description) > 60 {
+				subtitle = book.Metadata.Description[:57] + "..."
+			} else {
+				subtitle = book.Metadata.Description
+			}
+		}
+		jacketContentStr = strings.Replace(jacketContentStr, "{{BOOK_SUBTITLE}}", subtitle, -1)
+
+		jacketContent = []byte(jacketContentStr)
+
+		if err := ioutil.WriteFile(filepath.Join(oebpsPath, "jacket.xhtml"), jacketContent, 0644); err != nil {
+			return fmt.Errorf("failed to create jacket.xhtml: %w", err)
 		}
 
 		// Copy Folian logo if it exists
-		folianLogoPath := filepath.Join("/Users/4azy/lune/code/pub/format/folian.png")
+		folianLogoPath := filepath.Join(FormatDirPath, "folian.png")
 		if _, err := os.Stat(folianLogoPath); err == nil {
 			folianLogoContent, err := ioutil.ReadFile(folianLogoPath)
 			if err == nil {
@@ -547,11 +357,61 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 			continue
 		}
 
-		// Read the image file
+		// Extract the base filename of the image
+		imageBase := filepath.Base(imagePath)
+
+		// Try to find the image in the extracted directory
+		// First, try the path as specified in the manifest
 		fullPath := filepath.Join(basePath, imagePath)
 		content, err := ioutil.ReadFile(fullPath)
+
+		// If that fails, try looking in the OEBPS directory
 		if err != nil {
-			return fmt.Errorf("failed to read image %s: %w", imagePath, err)
+			fullPath = filepath.Join(filepath.Dir(basePath), "OEBPS", imagePath)
+			content, err = ioutil.ReadFile(fullPath)
+
+			// If that fails, try looking in the OEBPS/images directory
+			if err != nil {
+				fullPath = filepath.Join(filepath.Dir(basePath), "OEBPS", "images", imageBase)
+				content, err = ioutil.ReadFile(fullPath)
+
+				// If that fails, try looking directly in the extracted directory
+				if err != nil {
+					fullPath = filepath.Join(filepath.Dir(basePath), imageBase)
+					content, err = ioutil.ReadFile(fullPath)
+
+					// If all attempts fail, search for any file with the same name
+					if err != nil {
+						// Search for the image in the entire extracted directory
+						extractedDir := filepath.Dir(basePath)
+
+						// Use filepath.Walk to search for the file
+						var imagePath string
+						filepath.Walk(extractedDir, func(path string, info os.FileInfo, err error) error {
+							if err != nil {
+								return nil
+							}
+							if !info.IsDir() && filepath.Base(path) == imageBase {
+								imagePath = path
+								return filepath.SkipDir // Stop walking once we find the file
+							}
+							return nil
+						})
+
+						// If we found the file, read it
+						if imagePath != "" {
+							fullPath = imagePath
+							content, err = ioutil.ReadFile(fullPath)
+						}
+
+						// If we still can't find the file, log a warning and continue
+						if err != nil {
+							fmt.Printf("Warning: failed to find image %s: %v\n", imagePath, err)
+							continue
+						}
+					}
+				}
+			}
 		}
 
 		// Write the image file
@@ -751,7 +611,7 @@ func (r *Restructurer) createBasicChapterTemplate(title string, chapterNum int) 
 func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) error {
 	// Start building the OPF content
 	subtitleMeta := ""
-	
+
 	opfContent := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="BookID">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -778,19 +638,20 @@ func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) err
 	// Add items to manifest
 	manifestItems := []string{
 		`    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,
+		`    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>`,
 	}
 
 	// Add titlepage and jacket
 	hasCover := book.CoverImage != ""
 	if hasCover {
 		manifestItems = append(manifestItems, `    <item id="titlepage" href="titlepage.xhtml" media-type="application/xhtml+xml" properties="svg"/>`)
-		manifestItems = append(manifestItems, `    <item id="jacket" href="jacket.html" media-type="application/xhtml+xml"/>`)
+		manifestItems = append(manifestItems, `    <item id="jacket" href="jacket.xhtml" media-type="application/xhtml+xml"/>`)
 		manifestItems = append(manifestItems, fmt.Sprintf(`    <item id="cover-image" href="images/cover%s" media-type="image/%s" properties="cover-image"/>`,
 			filepath.Ext(book.CoverImage),
 			strings.TrimPrefix(filepath.Ext(book.CoverImage), ".")))
 
 		// Add Folian logo if it exists
-		folianLogoPath := filepath.Join("/Users/4azy/lune/code/pub/format/folian.png")
+		folianLogoPath := filepath.Join(FormatDirPath, "folian.png")
 		if _, err := os.Stat(folianLogoPath); err == nil {
 			manifestItems = append(manifestItems, `    <item id="folian-logo" href="images/folian.png" media-type="image/png"/>`)
 		}
@@ -798,9 +659,9 @@ func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) err
 
 	// Add stylesheets
 	manifestItems = append(manifestItems, `    <item id="stylesheet" href="styles/stylesheet.css" media-type="text/css"/>`)
-	for i, stylesheet := range book.Stylesheets {
-		manifestItems = append(manifestItems, fmt.Sprintf(`    <item id="style%d" href="styles/%s" media-type="text/css"/>`, i+1, filepath.Base(stylesheet)))
-	}
+	//for i, stylesheet := range book.Stylesheets {
+	//	manifestItems = append(manifestItems, fmt.Sprintf(`    <item id="style%d" href="styles/%s" media-type="text/css"/>`, i+1, filepath.Base(stylesheet)))
+	//}
 
 	// Add chapters
 	for i := range book.Chapters {
@@ -848,6 +709,9 @@ func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) err
 		spineItems = append(spineItems, `    <itemref idref="jacket"/>`)
 	}
 
+	// Add nav document to spine
+	spineItems = append(spineItems, `    <itemref idref="nav"/>`)
+
 	// Add chapters to spine
 	for i := range book.Chapters {
 		spineItems = append(spineItems, fmt.Sprintf(`    <itemref idref="chapter%d"/>`, i+1))
@@ -858,6 +722,39 @@ func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) err
 
 	// Write the OPF file
 	return ioutil.WriteFile(filepath.Join(oebpsPath, "content.opf"), []byte(opfContent), 0644)
+}
+
+// createNavDocument creates the nav.xhtml file for EPUB3 navigation
+func (r *Restructurer) createNavDocument(book *parser.Book, oebpsPath string) error {
+	// Read the nav.xhtml template from the format directory
+	navTemplatePath := filepath.Join(FormatDirPath, "nav.xhtml")
+	navTemplate, err := ioutil.ReadFile(navTemplatePath)
+	if err != nil {
+		return fmt.Errorf("failed to read nav.xhtml template from format directory: %w", err)
+	}
+
+	// Replace book title
+	navContent := string(navTemplate)
+	navContent = strings.Replace(navContent, "{{BOOK_TITLE}}", book.Metadata.Title, -1)
+
+	// Generate TOC entries
+	var tocEntries strings.Builder
+
+	// Add chapters to TOC
+	for i, chapter := range book.Chapters {
+		chapterPath := fmt.Sprintf("chapters/chapter_%03d.xhtml", i+1)
+		tocEntries.WriteString(fmt.Sprintf("<li><a href=\"%s\">%s</a></li>\n", chapterPath, chapter.Title))
+	}
+
+	// Replace TOC entries placeholder
+	navContent = strings.Replace(navContent, "{{TOC_ENTRIES}}", tocEntries.String(), -1)
+
+	// Write the nav.xhtml file
+	if err := ioutil.WriteFile(filepath.Join(oebpsPath, "nav.xhtml"), []byte(navContent), 0644); err != nil {
+		return fmt.Errorf("failed to write nav.xhtml: %w", err)
+	}
+
+	return nil
 }
 
 // createTocNCX creates the toc.ncx file
@@ -902,7 +799,7 @@ func (r *Restructurer) createTocNCX(book *parser.Book, oebpsPath string) error {
       <navLabel>
         <text>Title Page</text>
       </navLabel>
-      <content src="jacket.html"/>
+      <content src="jacket.xhtml"/>
     </navPoint>`, playOrder))
 		playOrder++
 	}
