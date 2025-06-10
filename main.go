@@ -13,7 +13,7 @@ import (
 
 // Version information
 const (
-	Version = "0.2.3"
+	Version = "0.2.4"
 )
 
 // ensureFormatDirectory ensures that the format directory exists and contains all necessary files

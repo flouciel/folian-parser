@@ -440,21 +440,8 @@ func (r *Restructurer) processChapters(book *parser.Book, basePath, oebpsPath st
 
 	// Process each chapter
 	for i, chapter := range book.Chapters {
-		// Extract title from content or use book title
-		titleMatch := regexp.MustCompile(`<title>([^<]+)</title>`).FindStringSubmatch(chapter.Content)
-		chapterTitle := fmt.Sprintf("Chapter %d", i+1)
-
-		// Use book title if provided
-		bookTitle := book.Metadata.Title
-		if bookTitle != "" {
-			if len(titleMatch) > 1 && titleMatch[1] != bookTitle {
-				chapterTitle = fmt.Sprintf("Chapter %d: %s", i+1, titleMatch[1])
-			} else {
-				chapterTitle = fmt.Sprintf("Chapter %d: %s", i+1, bookTitle)
-			}
-		} else if len(titleMatch) > 1 {
-			chapterTitle = fmt.Sprintf("Chapter %d: %s", i+1, titleMatch[1])
-		}
+		// Use the chapter title from the TOC entries
+		chapterTitle := chapter.Title
 
 		// Create the chapter content
 		processedContent := fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
@@ -467,9 +454,9 @@ func (r *Restructurer) processChapters(book *parser.Book, basePath, oebpsPath st
 
 <body>
 
-    <h1>Chapter %d</h1>
+    <h1>%s</h1>
 
-`, chapterTitle, i+1)
+`, chapterTitle, chapterTitle)
 
 		// Extract paragraphs from content
 		bodyContent := chapter.Content
