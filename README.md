@@ -41,6 +41,7 @@ folian-parser -i input.epub -o output.epub [-f path/to/format/directory] [-v] [-
 - `-f`: Path to the format directory (optional, defaults to "format")
 - `-v`: Display version information and exit
 - `-d`: Enable debug output to verify file creation
+- `-u`: Check for updates and update if a newer version is available
 
 If the output path is not provided, the tool will generate one based on the input path:
 
