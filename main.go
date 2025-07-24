@@ -17,7 +17,7 @@ import (
 
 // Version information
 const (
-	Version = "0.3"
+	Version = "0.3.2"
 	GitHubRepo = "flouciel/folian-parser"
 )
 
