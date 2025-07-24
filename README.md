@@ -26,6 +26,8 @@ Or clone the repository and build it manually:
 git clone https://github.com/flouciel/folian-parser.git
 cd folian-parser
 go build -o folian-parser
+or 
+./build.sh
 ```
 
 ## Usage
@@ -81,23 +83,22 @@ folian-parser -i original.epub -compare enhanced.epub
 
 ### Advanced Usage
 
-For better results with complex EPUBs, use the enhanced processing script:
+For comprehensive EPUB processing with validation and analysis:
 
 ```bash
-# Basic enhanced processing
-./enhance-epub.sh -i input.epub
+# Enhanced processing with full analysis
+./folian-parser -i input.epub -o output.epub -enhanced -d
 
-# With custom output and format directory
-./enhance-epub.sh -i input.epub -o enhanced-output.epub -f custom-format
+# Pre-validate input before processing
+./folian-parser -i input.epub -validate && ./folian-parser -i input.epub -o output.epub -enhanced
 
-# Analyze EPUB structure only
-./enhance-epub.sh -a -i input.epub
-
-# Validate EPUB only
-./enhance-epub.sh -v -i input.epub
+# Complete workflow: analyze → process → compare
+./folian-parser -i input.epub -a
+./folian-parser -i input.epub -o enhanced.epub -enhanced -d
+./folian-parser -i input.epub -compare enhanced.epub
 ```
 
-The enhanced script provides:
+The enhanced processing provides:
 - **Pre-processing validation** of input EPUB files
 - **Structure analysis** to understand content organization
 - **Post-processing validation** of output files
@@ -114,19 +115,7 @@ The format directory contains templates and assets used to standardize the EPUB 
 - `jura.ttf` - The Jura font used in the EPUB
 - `folian.png` - Folian logo image
 
-To create the format directory, use the included script:
-
-```bash
-./create-format-dir.sh [path/to/format/directory]
-```
-
-If no path is provided, it will create a `format` directory in the current location.
-
-After creating the format directory, you should:
-
-1. Replace the placeholder `jura.ttf` with the actual Jura font file
-2. Replace the placeholder `folian.png` with your actual logo
-3. Customize the templates and stylesheet as needed
+You can download and customize the templates and stylesheet as needed for your specific requirements.
 
 The templates use placeholders that will be replaced with actual content from the EPUB:
 
@@ -154,10 +143,11 @@ The templates use placeholders that will be replaced with actual content from th
 - **Batch Processing**: Can process multiple files efficiently
 
 ### 🎨 **Quality Improvements**
-- **Enhanced Typography**: Better font hierarchy and spacing
+- **Enhanced Typography**: Better font hierarchy and spacing with correct font paths
 - **Accessibility Support**: High contrast mode and reduced motion support
 - **Error Reduction**: Proper HTML entity encoding and validation
 - **Image Optimization**: Smart image path fixing and optimization
+- **Asset Path Management**: Correct relative paths for fonts, images, and stylesheets
 
 ## Directory Structure
 
@@ -189,55 +179,54 @@ The restructured EPUB will have the following structure:
 
 ## Workflow
 
-The Folian Parser workflow consists of three main steps:
+The Folian Parser workflow is streamlined and automated:
 
-1. **Create the format directory** with templates and assets
-2. **Replace placeholder files** with actual font and logo files
-3. **Run the tool** to process EPUB files
+1. **Install the tool** (format directory auto-created)
+2. **Process EPUB files** with enhanced features
+3. **Verify output** with built-in validation
 
-### Step 1: Create the Format Directory
+### Step 1: Install the tool and download format folder
 
-Run the included script to create the format directory:
+### Step 2: Verify Format Directory (Optional)
 
-```bash
-./create-format-dir.sh
-```
+The format directory is automatically created with production-ready files:
 
-This will create a `format` directory in the current location with all necessary template files.
+- ✅ `format/jura.ttf` - Professional Jura font (ready to use)
+- ✅ `format/folian.png` - Folian logo (ready to use)
+- ✅ `format/stylesheet.css` - Responsive CSS with proper font paths
+- ✅ `format/jacket.xhtml` - Professional jacket template
+- ✅ `format/titlepage.xhtml` - Dynamic cover page template
+- ✅ `format/nav.xhtml` - EPUB 3.0 navigation template
 
-For a custom location:
+All files are production-ready. You can customize templates and styling as needed.
 
-```bash
-./create-format-dir.sh /path/to/custom/format
-```
+### Step 3: Process EPUB Files
 
-### Step 2: Replace Placeholder Files
-
-The script creates placeholder files that you should replace:
-
-- Replace `format/jura.ttf` with the actual Jura font file
-- Replace `format/folian.png` with your actual logo
-
-You can also customize the templates and stylesheet to match your requirements.
-
-### Step 3: Run the Tool
-
-Process an EPUB file using the format directory:
-
+**Basic Processing:**
 ```bash
 ./folian-parser -i your-book.epub -o your-book-fixed.epub
 ```
 
-For a custom format directory:
+**Enhanced Processing (Recommended):**
+```bash
+./folian-parser -i your-book.epub -o your-book-enhanced.epub -enhanced -d
+```
 
+**With Custom Format Directory:**
 ```bash
 ./folian-parser -i your-book.epub -o your-book-fixed.epub -f /path/to/custom/format
 ```
 
-To verify that the jacket.xhtml and nav.xhtml files are correctly created, use the debug flag:
-
+**Complete Workflow:**
 ```bash
-./folian-parser -i your-book.epub -o your-book-fixed.epub -d
+# 1. Analyze input structure
+./folian-parser -i your-book.epub -a
+
+# 2. Process with enhanced features
+./folian-parser -i your-book.epub -o enhanced.epub -enhanced -d
+
+# 3. Compare results
+./folian-parser -i your-book.epub -compare enhanced.epub
 ```
 
 ### Step 4: Verify the Output
