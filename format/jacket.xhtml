@@ -1,135 +1,218 @@
-<?xml version='1.0' encoding='utf-8'?>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<?xml version="1.0" encoding="utf-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
-  <title>{{BOOK_TITLE}}</title>
-  <link href="styles/stylesheet.css" rel="stylesheet" type="text/css"/>
-    <style type="text/css">
-      @font-face {
-        font-family: "Jura";
-        src: url("fonts/jura.ttf");
-        font-weight: normal;
-        font-style: normal;
-      }
+  <title>Cover</title>
+  <style type="text/css">
+    @font-face {
+      font-family: "Jura";
+      src: url("fonts/jura.ttf");
+      font-weight: normal;
+      font-style: normal;
+    }
 
+    /* Reset and base styles for consistent rendering across devices */
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden; /* Prevent scrolling to ensure single page */
+    }
+
+    body {
+      background-color: #ffffff;
+      font-family: "Jura", sans-serif;
+      color: #333;
+      text-align: center;
+      padding: 3% 5%;
+      /* Use CSS Grid for reliable layout across devices */
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas:
+        "header"
+        "content"
+        "footer";
+      min-height: 100vh;
+      max-height: 100vh;
+    }
+
+    .cover-page {
+      display: contents; /* Let grid handle the layout */
+    }
+
+    .header-section {
+      grid-area: header;
+      padding-top: 1em;
+    }
+
+    .logo {
+      width: clamp(60px, 15vw, 100px); /* Responsive sizing */
+      height: auto;
+      max-width: 100%;
+      margin-bottom: 1.5em;
+    }
+
+    .content-section {
+      grid-area: content;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 1em 0;
+    }
+
+    h1 {
+      font-size: clamp(1.5em, 4vw, 2.2em); /* Responsive font sizing */
+      font-family: "Jura", sans-serif;
+      text-align: center;
+      letter-spacing: 0.1em;
+      margin: 0.5em 0;
+      font-weight: bold;
+      line-height: 1.2;
+      word-wrap: break-word;
+      hyphens: auto;
+    }
+
+    .footer-section {
+      grid-area: footer;
+      padding-bottom: 1em;
+    }
+
+    .author {
+      font-size: clamp(1em, 2.5vw, 1.2em);
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 0.5em 0;
+      font-weight: 500;
+    }
+
+    .footer {
+      font-size: clamp(0.7em, 2vw, 0.9em);
+      color: #777;
+      letter-spacing: 0.05em;
+      text-align: center;
+      margin: 0;
+    }
+
+    /* Fallback for older e-readers without CSS Grid support */
+    @supports not (display: grid) {
       body {
-        margin: 5%;
-        padding: 0;
-        background-color: #ffffff;
-        font-family: "Jura", serif;
-        color: #333;
-        text-align: center;
+        display: block;
+        position: relative;
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
       }
 
-      .book-cover {
-        margin: 0 auto;
-        max-width: 100%;
-        text-align: center;
-        padding: 2em 0;
-        min-height: 90vh; /* Make the cover take up most of the viewport height */
+      .cover-page {
+        height: 100%;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
       }
 
-      .logo {
-        width: 100px;
-        height: auto;
-        max-width: 100%;
-        margin-bottom: 2em;
+      .header-section {
+        flex-shrink: 0;
       }
 
-      .title {
-        font-size: 2em;
-        font-family: "Jura", sans-serif;
-        text-align: center;
-        letter-spacing: 2px;
-        margin: 1em 0 0.5em;
-        font-weight: bold;
-      }
-
-      .subtitle {
-        font-size: 1.2em;
-        color: #555;
-        font-style: italic;
-        letter-spacing: 1px;
-        margin-bottom: 1.5em;
-      }
-
-      .author {
-        font-size: 1.2em;
-        color: #555;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin: 0;
-        padding-bottom: 0.3em;
-      }
-
-      .content {
-        margin: 2em 0;
+      .content-section {
         flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
 
-      .bottom-content {
-        margin-top: auto; /* Push to the bottom when using flexbox */
-        padding-bottom: 1em; /* Add some padding at the bottom */
+      .footer-section {
+        flex-shrink: 0;
+      }
+    }
+
+    /* Further fallback for very old e-readers */
+    @supports not (display: flex) {
+      body {
+        position: relative;
+        height: 100vh;
+        max-height: 100vh;
       }
 
-      .footer {
-        font-size: 0.8em;
-        color: #777;
-        letter-spacing: 1px;
-        text-align: center;
-        margin-top: 0.5em; /* Reduced space between author and footer */
+      .header-section {
+        position: absolute;
+        top: 3%;
+        left: 5%;
+        right: 5%;
       }
 
-      /* For e-readers that don't support flexbox */
-      @supports not (display: flex) {
-        .book-cover {
-          position: relative;
-          min-height: 90vh;
-        }
-
-        .bottom-content {
-          position: absolute;
-          bottom: 1em;
-          left: 0;
-          right: 0;
-        }
-
-        .content {
-          margin-bottom: 8em; /* Ensure content doesn't overlap with bottom content in fallback mode */
-        }
+      .content-section {
+        position: absolute;
+        top: 50%;
+        left: 5%;
+        right: 5%;
+        transform: translateY(-50%);
       }
 
-      /* Media queries for better responsiveness */
-      @media screen and (max-width: 600px) {
-        .title {
-          font-size: 1.5em;
-        }
-
-        .subtitle, .author {
-          font-size: 1em;
-        }
-
-        .logo {
-          width: 80px;
-        }
+      .footer-section {
+        position: absolute;
+        bottom: 3%;
+        left: 5%;
+        right: 5%;
       }
-    </style>
-  </head>
-<body class="cover">
-  <div class="book-cover">
-    <div class="content">
-      <div class="logo-container">
-        <img src="../images/folian.png" alt="Folian Logo" class="logo"/>
-      </div>
-      <h1 class="title">{{BOOK_TITLE}}</h1>
+    }
+
+    /* Device-specific optimizations */
+    @media screen and (max-width: 480px) {
+      body {
+        padding: 2% 3%;
+      }
+
+      .logo {
+        width: clamp(50px, 12vw, 80px);
+        margin-bottom: 1em;
+      }
+
+      h1 {
+        letter-spacing: 0.05em;
+        margin: 0.3em 0;
+      }
+    }
+
+    /* High DPI displays */
+    @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+      .logo {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+      }
+    }
+
+    /* Ensure no page breaks */
+    @page {
+      margin: 0;
+      size: auto;
+    }
+
+    * {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  </style>
+</head>
+<body>
+  <div class="cover-page">
+    <div class="header-section">
+      <img class="logo" src="images/folian.png" alt="Folian Logo" />
+    </div>
+    <div class="content-section">
+      <h1>{{BOOK_TITLE}}</h1>
       <div class="subtitle">{{BOOK_SUBTITLE}}</div>
     </div>
-    <div class="bottom-content">
+
+    <div class="footer-section">
       <div class="author">{{BOOK_AUTHOR}}</div>
       <div class="footer">ebook@folian</div>
     </div>
   </div>
-  </body>
+</body>
 </html>
