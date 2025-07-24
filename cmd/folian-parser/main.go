@@ -11,8 +11,6 @@ import (
 	"strings"
 
 	"github.com/flouciel/folian-parser/internal/epub"
-	"github.com/flouciel/folian-parser/internal/parser"
-	"github.com/flouciel/folian-parser/internal/restructure"
 )
 
 const (

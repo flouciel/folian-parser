@@ -42,6 +42,10 @@ folian-parser -i input.epub -o output.epub [-f path/to/format/directory] [-v] [-
 - `-v`: Display version information and exit
 - `-d`: Enable debug output to verify file creation
 - `-u`: Check for updates and update if a newer version is available
+- `-a`: Analyze EPUB structure without processing
+- `-validate`: Validate EPUB structure only
+- `-enhanced`: Use enhanced processing with intelligent chapter consolidation
+- `-compare`: Compare two EPUB files and show differences
 
 If the output path is not provided, the tool will generate one based on the input path:
 
@@ -55,6 +59,49 @@ You can specify a custom format directory containing templates and assets:
 ```bash
 folian-parser -i input.epub -f /path/to/format/directory
 ```
+
+### Enhanced Processing & Analysis (NEW)
+
+```bash
+# Enhanced processing with intelligent chapter consolidation
+folian-parser -i input.epub -enhanced
+
+# Analyze EPUB structure without processing
+folian-parser -i input.epub -a
+
+# Validate EPUB structure only
+folian-parser -i input.epub -validate
+
+# Enhanced processing with debug output
+folian-parser -i input.epub -o output.epub -enhanced -d
+
+# Compare original and enhanced versions
+folian-parser -i original.epub -compare enhanced.epub
+```
+
+### Advanced Usage
+
+For better results with complex EPUBs, use the enhanced processing script:
+
+```bash
+# Basic enhanced processing
+./enhance-epub.sh -i input.epub
+
+# With custom output and format directory
+./enhance-epub.sh -i input.epub -o enhanced-output.epub -f custom-format
+
+# Analyze EPUB structure only
+./enhance-epub.sh -a -i input.epub
+
+# Validate EPUB only
+./enhance-epub.sh -v -i input.epub
+```
+
+The enhanced script provides:
+- **Pre-processing validation** of input EPUB files
+- **Structure analysis** to understand content organization
+- **Post-processing validation** of output files
+- **Detailed logging** of the enhancement process
 
 ### Format Directory
 
@@ -90,14 +137,27 @@ The templates use placeholders that will be replaced with actual content from th
 
 ## Features
 
-- Automatically extracts metadata from the EPUB file
-- Restructures the content according to a standardized format
-- Removes publisher-specific formatting and classes
-- Creates a properly formatted titlepage and jacket using templates
-- Generates an EPUB3-compliant navigation document (nav.xhtml)
-- Applies consistent styling using a single stylesheet
-- Organizes content into a standard directory structure
-- Uses template variables for easy customization
+### 🚀 **Enhanced Processing (NEW)**
+- **Intelligent Chapter Consolidation**: Automatically merges small chapters and removes navigation duplicates
+- **Advanced HTML Parsing**: Uses proper DOM parsing instead of regex for better accuracy
+- **EPUB 3.0 Compliance**: Generates modern EPUB 3.0 format with enhanced metadata
+- **Responsive Design**: Improved CSS with mobile and print optimizations
+- **Content Analysis**: Smart detection of table of contents and navigation pages
+
+### 📚 **Core Features**
+- **Standardized Structure**: Organizes EPUB content into a clean, consistent structure
+- **Template-Based Styling**: Uses customizable templates for title pages, jackets, and navigation
+- **Calibre Cleanup**: Removes publisher-specific classes and styling artifacts
+- **Font Integration**: Includes the Jura font for consistent typography
+- **Professional Layout**: Creates polished title and jacket pages with logo integration
+- **Navigation Enhancement**: Generates proper EPUB3 navigation documents
+- **Batch Processing**: Can process multiple files efficiently
+
+### 🎨 **Quality Improvements**
+- **Enhanced Typography**: Better font hierarchy and spacing
+- **Accessibility Support**: High contrast mode and reduced motion support
+- **Error Reduction**: Proper HTML entity encoding and validation
+- **Image Optimization**: Smart image path fixing and optimization
 
 ## Directory Structure
 

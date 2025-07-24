@@ -3,9 +3,12 @@ package parser
 import (
 	"encoding/xml"
 	"fmt"
+	"html"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 // EPUBParser parses EPUB files
@@ -264,8 +267,44 @@ func (p *EPUBParser) categorizeFiles(book *Book, basePath string) error {
 	return nil
 }
 
-// extractTitle extracts the title from HTML content (simplified)
+// extractTitle extracts the title from HTML content using proper HTML parsing
 func (p *EPUBParser) extractTitle(content string) string {
+	// Parse HTML content
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		// Fallback to simple parsing if goquery fails
+		return p.extractTitleFallback(content)
+	}
+
+	// Try to find title in h1 tag first
+	h1Title := strings.TrimSpace(doc.Find("h1").First().Text())
+	if h1Title != "" {
+		return html.UnescapeString(h1Title)
+	}
+
+	// Try to find title in h2 tag
+	h2Title := strings.TrimSpace(doc.Find("h2").First().Text())
+	if h2Title != "" {
+		return html.UnescapeString(h2Title)
+	}
+
+	// Try to find title in title tag
+	titleTag := strings.TrimSpace(doc.Find("title").First().Text())
+	if titleTag != "" {
+		return html.UnescapeString(titleTag)
+	}
+
+	// Try to find any heading tag
+	headingTitle := strings.TrimSpace(doc.Find("h1, h2, h3, h4, h5, h6").First().Text())
+	if headingTitle != "" {
+		return html.UnescapeString(headingTitle)
+	}
+
+	return "Untitled"
+}
+
+// extractTitleFallback provides fallback title extraction using string operations
+func (p *EPUBParser) extractTitleFallback(content string) string {
 	// Try to find title in h1 tag
 	h1Start := strings.Index(content, "<h1")
 	if h1Start != -1 {
@@ -275,7 +314,8 @@ func (p *EPUBParser) extractTitle(content string) string {
 			// Extract text between > and <
 			gtIndex := strings.Index(h1Content, ">")
 			if gtIndex != -1 {
-				return strings.TrimSpace(h1Content[gtIndex+1 : len(h1Content)-5])
+				title := strings.TrimSpace(h1Content[gtIndex+1 : len(h1Content)-5])
+				return html.UnescapeString(title)
 			}
 		}
 	}
@@ -285,7 +325,8 @@ func (p *EPUBParser) extractTitle(content string) string {
 	if titleStart != -1 {
 		titleEnd := strings.Index(content[titleStart:], "</title>")
 		if titleEnd != -1 {
-			return strings.TrimSpace(content[titleStart+7 : titleStart+titleEnd])
+			title := strings.TrimSpace(content[titleStart+7 : titleStart+titleEnd])
+			return html.UnescapeString(title)
 		}
 	}
 

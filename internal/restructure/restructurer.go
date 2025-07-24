@@ -2,12 +2,15 @@ package restructure
 
 import (
 	"fmt"
+	"html"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/flouciel/folian-parser/internal/parser"
 )
 
@@ -16,6 +19,9 @@ var FormatDirPath = filepath.Join("format")
 
 // DebugMode enables debug output
 var DebugMode bool
+
+// EnhancedMode enables enhanced processing with intelligent chapter consolidation
+var EnhancedMode bool
 
 // Restructurer handles the restructuring of EPUB content
 type Restructurer struct{}
@@ -157,13 +163,17 @@ func (r *Restructurer) processStylesheets(book *parser.Book, basePath, oebpsPath
 	fontPath := filepath.Join(FormatDirPath, "jura.ttf")
 	fontData, err := ioutil.ReadFile(fontPath)
 	if err != nil {
-		fmt.Printf("Warning: Could not read Jura font: %v\n", err)
+		fmt.Printf("Warning: Could not read Jura font from %s: %v\n", fontPath, err)
 		// Continue without the font
 	} else {
 		// Write the font to the fonts directory
 		fontsPath := filepath.Join(oebpsPath, "fonts")
-		if err := ioutil.WriteFile(filepath.Join(fontsPath, "jura.ttf"), fontData, 0644); err != nil {
-			return fmt.Errorf("failed to write Jura font: %w", err)
+		outputFontPath := filepath.Join(fontsPath, "jura.ttf")
+		if err := ioutil.WriteFile(outputFontPath, fontData, 0644); err != nil {
+			return fmt.Errorf("failed to write Jura font to %s: %w", outputFontPath, err)
+		}
+		if DebugMode {
+			fmt.Printf("✅ Copied Jura font: %s → %s\n", fontPath, outputFontPath)
 		}
 	}
 
@@ -288,12 +298,9 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 			return fmt.Errorf("failed to read titlepage template from format directory: %w", err)
 		}
 
-		// Replace the cover image reference
+		// Replace the cover image reference using placeholder
 		titlePageContentStr := string(titlePageContent)
-		titlePageContentStr = strings.Replace(titlePageContentStr,
-			`<image width="1038" height="1380" xlink:href="images/cover.jpg"/>`,
-			fmt.Sprintf(`<image width="1038" height="1380" xlink:href="images/%s"/>`, coverFilename),
-			-1)
+		titlePageContentStr = strings.Replace(titlePageContentStr, "{{COVER_IMAGE}}", coverFilename, -1)
 		titlePageContent = []byte(titlePageContentStr)
 
 		if err := ioutil.WriteFile(filepath.Join(oebpsPath, "titlepage.xhtml"), titlePageContent, 0644); err != nil {
@@ -352,10 +359,17 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 		if _, err := os.Stat(folianLogoPath); err == nil {
 			folianLogoContent, err := ioutil.ReadFile(folianLogoPath)
 			if err == nil {
-				if err := ioutil.WriteFile(filepath.Join(imagesPath, "folian.png"), folianLogoContent, 0644); err != nil {
-					fmt.Printf("Warning: Failed to copy Folian logo: %v\n", err)
+				outputLogoPath := filepath.Join(imagesPath, "folian.png")
+				if err := ioutil.WriteFile(outputLogoPath, folianLogoContent, 0644); err != nil {
+					fmt.Printf("Warning: Failed to copy Folian logo to %s: %v\n", outputLogoPath, err)
+				} else if DebugMode {
+					fmt.Printf("✅ Copied Folian logo: %s → %s\n", folianLogoPath, outputLogoPath)
 				}
+			} else {
+				fmt.Printf("Warning: Failed to read Folian logo from %s: %v\n", folianLogoPath, err)
 			}
+		} else if DebugMode {
+			fmt.Printf("ℹ️  Folian logo not found at %s\n", folianLogoPath)
 		}
 	}
 
@@ -434,86 +448,49 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 	return nil
 }
 
-// processChapters processes and copies chapter files
+// processChapters processes and copies chapter files with optional intelligent consolidation
 func (r *Restructurer) processChapters(book *parser.Book, basePath, oebpsPath string) error {
 	chaptersPath := filepath.Join(oebpsPath, "chapters")
 
+	// Use enhanced processing if enabled
+	var chaptersToProcess []parser.Chapter
+	if EnhancedMode {
+		if DebugMode {
+			fmt.Printf("🚀 Enhanced mode: Consolidating %d chapters intelligently\n", len(book.Chapters))
+		}
+		chaptersToProcess = r.consolidateChapters(book.Chapters)
+		if DebugMode {
+			fmt.Printf("📚 Consolidated to %d chapters\n", len(chaptersToProcess))
+		}
+	} else {
+		chaptersToProcess = book.Chapters
+	}
+
 	// Process each chapter
-	for i, chapter := range book.Chapters {
+	for i, chapter := range chaptersToProcess {
 		// Use the chapter title from the TOC entries
 		chapterTitle := chapter.Title
-
-		// Create the chapter content
-		processedContent := fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
-<html xmlns="http://www.w3.org/1999/xhtml">
-
-<head>
-  <title>%s</title>
-  <link href="../styles/stylesheet.css" rel="stylesheet" type="text/css"/>
-</head>
-
-<body>
-
-    <h1>%s</h1>
-
-`, chapterTitle, chapterTitle)
-
-		// Extract paragraphs from content
-		bodyContent := chapter.Content
-
-		// Remove the XML declaration and DOCTYPE
-		bodyContent = regexp.MustCompile(`<\?xml[^>]*\?>`).ReplaceAllString(bodyContent, "")
-		bodyContent = regexp.MustCompile(`<!DOCTYPE[^>]*>`).ReplaceAllString(bodyContent, "")
-
-		// Extract the body content
-		bodyMatch := regexp.MustCompile(`<body[^>]*>(.*?)</body>`).FindStringSubmatch(bodyContent)
-		if len(bodyMatch) > 1 {
-			bodyContent = bodyMatch[1]
+		if chapterTitle == "" {
+			chapterTitle = fmt.Sprintf("Chapter %d", i+1)
 		}
 
-		// Remove Calibre-specific classes
-		bodyContent = regexp.MustCompile(`class="calibre[^"]*"`).ReplaceAllString(bodyContent, "")
-
-		// Extract paragraphs
-		paragraphs := regexp.MustCompile(`<p[^>]*>(.*?)</p>`).FindAllStringSubmatch(bodyContent, -1)
-
-		// If no paragraphs found, try to extract text directly
-		if len(paragraphs) == 0 {
-			// Split by newlines and create paragraphs
-			lines := strings.Split(bodyContent, "\n")
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line != "" && !strings.HasPrefix(line, "<") && !strings.HasSuffix(line, ">") {
-					processedContent += fmt.Sprintf("  <p>%s</p>\n\n", line)
-				}
+		// Create the chapter content using proper HTML parsing
+		processedContent, err := r.createCleanChapterContent(chapterTitle, chapter.Content)
+		if err != nil {
+			if DebugMode {
+				fmt.Printf("⚠️  HTML parsing failed for chapter %d, using basic processing: %v\n", i+1, err)
 			}
-		} else {
-			// Process each paragraph
-			for _, p := range paragraphs {
-				if len(p) > 1 {
-					paragraphContent := p[1]
+			// Fallback to basic processing if HTML parsing fails
+			processedContent = r.createBasicChapterContent(chapterTitle, chapter.Content)
+		}
 
-					// Remove nested spans with Calibre classes
-					paragraphContent = regexp.MustCompile(`<span class="calibre[^"]*">(.*?)</span>`).ReplaceAllString(paragraphContent, "$1")
-
-					// Fix image paths
-					paragraphContent = regexp.MustCompile(`src="([^"]+\.(jpg|jpeg|png|gif))"`).ReplaceAllString(paragraphContent, `src="../images/$1"`)
-
-					// Only add non-empty paragraphs
-					if strings.TrimSpace(paragraphContent) != "" {
-						processedContent += fmt.Sprintf("  <p>%s</p>\n\n", paragraphContent)
-					}
-				}
+		// Validate the content is not empty
+		if len(strings.TrimSpace(processedContent)) < 100 {
+			if DebugMode {
+				fmt.Printf("⚠️  Chapter %d appears to be empty or too short, skipping\n", i+1)
 			}
+			continue
 		}
-
-		// If no paragraphs were added, add a default one
-		if !strings.Contains(processedContent, "<p>") {
-			processedContent += "  <p>Chapter content</p>\n\n"
-		}
-
-		// Close the HTML
-		processedContent += "</body>\n\n</html>"
 
 		// Write the processed chapter
 		filename := fmt.Sprintf("chapter_%03d.xhtml", i+1)
@@ -521,7 +498,14 @@ func (r *Restructurer) processChapters(book *parser.Book, basePath, oebpsPath st
 		if err := ioutil.WriteFile(outputPath, []byte(processedContent), 0644); err != nil {
 			return fmt.Errorf("failed to write chapter %s: %w", filename, err)
 		}
+
+		if DebugMode {
+			fmt.Printf("✅ Created chapter: %s (%d chars)\n", filename, len(processedContent))
+		}
 	}
+
+	// Update the book's chapters to reflect the processed chapters
+	book.Chapters = chaptersToProcess
 
 	return nil
 }
@@ -603,33 +587,60 @@ func (r *Restructurer) createBasicChapterTemplate(title string, chapterNum int) 
 </html>`, title, fmt.Sprintf("Chapter %d", chapterNum))
 }
 
-// createContentOPF creates the content.opf file
+// createContentOPF creates the content.opf file with enhanced EPUB 3.0 metadata
 func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) error {
-	// Start building the OPF content
-	subtitleMeta := ""
+	// Generate a unique identifier if missing
+	identifier := book.Metadata.Identifier
+	if identifier == "" {
+		identifier = fmt.Sprintf("folian-%d", len(book.Metadata.Title))
+	}
 
+	// Set default language if missing
+	language := book.Metadata.Language
+	if language == "" {
+		language = "vi" // Default to Vietnamese
+	}
+
+	// Get current timestamp for EPUB 3.0 compliance
+	currentTime := time.Now().UTC().Format("2006-01-02T15:04:05Z")
+
+	// Set default date if missing
+	publicationDate := book.Metadata.Date
+	if publicationDate == "" {
+		publicationDate = currentTime
+	}
+
+	// Enhanced EPUB 3.0 metadata with proper structure
 	opfContent := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="BookID">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
-    <dc:title>%s</dc:title>
-    <dc:creator>%s</dc:creator>
+    <dc:title id="title">%s</dc:title>
+    <dc:creator id="creator">%s</dc:creator>
     <dc:language>%s</dc:language>
     <dc:identifier id="BookID">%s</dc:identifier>
     <dc:publisher>%s</dc:publisher>
     <dc:description>%s</dc:description>
     <dc:date>%s</dc:date>
-    <meta name="cover" content="cover-image"/>%s
+    <meta name="cover" content="cover-image"/>
+    <meta property="dcterms:modified">%s</meta>
+    <meta name="generator">Folian Parser v0.2.4</meta>
+    <opf:meta refines="#title" property="title-type">main</opf:meta>
+    <opf:meta refines="#title" property="file-as">%s</opf:meta>
+    <opf:meta refines="#creator" property="role" scheme="marc:relators">aut</opf:meta>
+    <opf:meta refines="#creator" property="file-as">%s</opf:meta>
   </metadata>
   <manifest>
 `,
-		book.Metadata.Title,
-		book.Metadata.Creator,
-		book.Metadata.Language,
-		book.Metadata.Identifier,
-		book.Metadata.Publisher,
-		book.Metadata.Description,
-		book.Metadata.Date,
-		subtitleMeta)
+		html.EscapeString(book.Metadata.Title),
+		html.EscapeString(book.Metadata.Creator),
+		language,
+		identifier,
+		html.EscapeString(book.Metadata.Publisher),
+		html.EscapeString(book.Metadata.Description),
+		publicationDate,
+		currentTime,
+		html.EscapeString(book.Metadata.Title),
+		html.EscapeString(book.Metadata.Creator))
 
 	// Add items to manifest
 	manifestItems := []string{
@@ -642,9 +653,22 @@ func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) err
 	if hasCover {
 		manifestItems = append(manifestItems, `    <item id="titlepage" href="titlepage.xhtml" media-type="application/xhtml+xml" properties="svg"/>`)
 		manifestItems = append(manifestItems, `    <item id="jacket" href="jacket.xhtml" media-type="application/xhtml+xml"/>`)
-		manifestItems = append(manifestItems, fmt.Sprintf(`    <item id="cover-image" href="images/cover%s" media-type="image/%s" properties="cover-image"/>`,
-			filepath.Ext(book.CoverImage),
-			strings.TrimPrefix(filepath.Ext(book.CoverImage), ".")))
+
+		// Determine correct media type for cover image
+		ext := strings.ToLower(filepath.Ext(book.CoverImage))
+		mediaType := "image/jpeg" // Default
+		if ext == ".png" {
+			mediaType = "image/png"
+		} else if ext == ".jpg" || ext == ".jpeg" {
+			mediaType = "image/jpeg"
+		} else if ext == ".gif" {
+			mediaType = "image/gif"
+		} else if ext == ".webp" {
+			mediaType = "image/webp"
+		}
+
+		manifestItems = append(manifestItems, fmt.Sprintf(`    <item id="cover-image" href="images/cover%s" media-type="%s" properties="cover-image"/>`,
+			filepath.Ext(book.CoverImage), mediaType))
 
 		// Add Folian logo if it exists
 		folianLogoPath := filepath.Join(FormatDirPath, "folian.png")
@@ -667,28 +691,34 @@ func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) err
 	// Add images
 	for i, imagePath := range book.Images {
 		if imagePath != book.CoverImage {
-			ext := filepath.Ext(imagePath)
-			mediaType := "image/jpeg"
+			ext := strings.ToLower(filepath.Ext(imagePath))
+			mediaType := "image/jpeg" // Default
 			if ext == ".png" {
 				mediaType = "image/png"
+			} else if ext == ".jpg" || ext == ".jpeg" {
+				mediaType = "image/jpeg"
 			} else if ext == ".gif" {
 				mediaType = "image/gif"
+			} else if ext == ".webp" {
+				mediaType = "image/webp"
+			} else if ext == ".svg" {
+				mediaType = "image/svg+xml"
 			}
 			manifestItems = append(manifestItems, fmt.Sprintf(`    <item id="image%d" href="images/%s" media-type="%s"/>`, i+1, filepath.Base(imagePath), mediaType))
 		}
 	}
 
-	// Add fonts
-	manifestItems = append(manifestItems, `    <item id="jura-font" href="fonts/jura.ttf" media-type="application/x-font-ttf"/>`)
+	// Add fonts with correct EPUB 3.0 media types
+	manifestItems = append(manifestItems, `    <item id="jura-font" href="fonts/jura.ttf" media-type="application/vnd.ms-opentype"/>`)
 	for i, fontPath := range book.Fonts {
-		ext := filepath.Ext(fontPath)
-		mediaType := "application/font-sfnt"
-		if ext == ".ttf" {
-			mediaType = "application/x-font-ttf"
-		} else if ext == ".otf" {
-			mediaType = "application/x-font-opentype"
+		ext := strings.ToLower(filepath.Ext(fontPath))
+		mediaType := "application/vnd.ms-opentype" // Default for TTF/OTF
+		if ext == ".ttf" || ext == ".otf" {
+			mediaType = "application/vnd.ms-opentype"
 		} else if ext == ".woff" {
 			mediaType = "application/font-woff"
+		} else if ext == ".woff2" {
+			mediaType = "font/woff2"
 		}
 		manifestItems = append(manifestItems, fmt.Sprintf(`    <item id="font%d" href="fonts/%s" media-type="%s"/>`, i+1, filepath.Base(fontPath), mediaType))
 	}
@@ -758,6 +788,266 @@ func (r *Restructurer) createNavDocument(book *parser.Book, oebpsPath string) er
 	}
 
 	return nil
+}
+
+// consolidateChapters intelligently consolidates small chapters based on content analysis
+func (r *Restructurer) consolidateChapters(chapters []parser.Chapter) []parser.Chapter {
+	if len(chapters) <= 20 {
+		// If we have 20 or fewer chapters, minimal consolidation needed
+		return r.cleanupChapterTitles(chapters)
+	}
+
+	var consolidated []parser.Chapter
+	var currentChapter *parser.Chapter
+	const minChapterLength = 800 // Minimum characters for a standalone chapter
+	const maxChapterLength = 15000 // Maximum characters before forcing a split
+
+	for _, chapter := range chapters {
+		contentLength := len(strings.TrimSpace(chapter.Content))
+
+		// Check if this looks like a table of contents or navigation page
+		if r.isNavigationChapter(chapter) {
+			// Skip navigation chapters in consolidation
+			continue
+		}
+
+		// Check if this is a chapter header or very short content
+		if contentLength < minChapterLength && currentChapter != nil {
+			// Check if current chapter would become too long
+			if len(currentChapter.Content) + contentLength < maxChapterLength {
+				// Merge with current chapter
+				currentChapter.Content += "\n\n" + chapter.Content
+				// Update title if the current one is generic or less descriptive
+				if r.isBetterTitle(chapter.Title, currentChapter.Title) {
+					currentChapter.Title = chapter.Title
+				}
+			} else {
+				// Current chapter is full, start a new one
+				if currentChapter != nil {
+					consolidated = append(consolidated, *currentChapter)
+				}
+				newChapter := chapter
+				newChapter.Title = r.cleanChapterTitle(chapter.Title, len(consolidated)+1)
+				currentChapter = &newChapter
+			}
+		} else {
+			// Start a new chapter or add standalone chapter
+			if currentChapter != nil {
+				consolidated = append(consolidated, *currentChapter)
+			}
+
+			newChapter := chapter
+			// Clean up the title
+			newChapter.Title = r.cleanChapterTitle(chapter.Title, len(consolidated)+1)
+			currentChapter = &newChapter
+		}
+	}
+
+	// Add the last chapter
+	if currentChapter != nil {
+		consolidated = append(consolidated, *currentChapter)
+	}
+
+	return consolidated
+}
+
+// cleanupChapterTitles cleans up chapter titles without consolidation
+func (r *Restructurer) cleanupChapterTitles(chapters []parser.Chapter) []parser.Chapter {
+	cleaned := make([]parser.Chapter, len(chapters))
+	for i, chapter := range chapters {
+		cleaned[i] = chapter
+		cleaned[i].Title = r.cleanChapterTitle(chapter.Title, i+1)
+	}
+	return cleaned
+}
+
+// isBetterTitle determines if newTitle is better than currentTitle
+func (r *Restructurer) isBetterTitle(newTitle, currentTitle string) bool {
+	newLower := strings.ToLower(strings.TrimSpace(newTitle))
+	currentLower := strings.ToLower(strings.TrimSpace(currentTitle))
+
+	// Prefer non-generic titles
+	if strings.Contains(currentLower, "chapter") && !strings.Contains(newLower, "chapter") {
+		return true
+	}
+	if strings.Contains(currentLower, "part") && !strings.Contains(newLower, "part") {
+		return true
+	}
+
+	// Prefer longer, more descriptive titles
+	if len(newTitle) > len(currentTitle) && len(newTitle) > 10 {
+		return true
+	}
+
+	return false
+}
+
+// isNavigationChapter checks if a chapter is likely a table of contents or navigation
+func (r *Restructurer) isNavigationChapter(chapter parser.Chapter) bool {
+	title := strings.ToLower(chapter.Title)
+	content := strings.ToLower(chapter.Content)
+
+	// Check for common navigation indicators
+	navIndicators := []string{"table of contents", "mục lục", "contents", "toc", "navigation"}
+	for _, indicator := range navIndicators {
+		if strings.Contains(title, indicator) || strings.Contains(content, indicator) {
+			return true
+		}
+	}
+
+	// Check if content has many links (likely a TOC)
+	linkCount := strings.Count(content, "<a ")
+	contentLength := len(strings.TrimSpace(content))
+	if contentLength > 0 && linkCount > 5 && float64(linkCount)/float64(contentLength)*1000 > 10 {
+		return true
+	}
+
+	return false
+}
+
+// cleanChapterTitle cleans and standardizes chapter titles
+func (r *Restructurer) cleanChapterTitle(title string, chapterNum int) string {
+	title = strings.TrimSpace(title)
+	title = html.UnescapeString(title)
+
+	// Remove common prefixes that are not meaningful
+	prefixesToRemove := []string{"part", "phần", "section"}
+	titleLower := strings.ToLower(title)
+
+	for _, prefix := range prefixesToRemove {
+		if strings.HasPrefix(titleLower, prefix) {
+			// Extract the meaningful part after the prefix
+			parts := strings.SplitN(title, " ", 2)
+			if len(parts) > 1 {
+				title = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	// If title is just a number or very generic, create a better title
+	if matched, _ := regexp.MatchString(`^\d+$`, title); matched {
+		title = fmt.Sprintf("Chương %s", title)
+	} else if title == "" || strings.ToLower(title) == "untitled" {
+		title = fmt.Sprintf("Chương %d", chapterNum)
+	}
+
+	return title
+}
+
+// createCleanChapterContent creates clean chapter content using proper HTML parsing
+func (r *Restructurer) createCleanChapterContent(title, content string) (string, error) {
+	// Parse the HTML content
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(content))
+	if err != nil {
+		return "", err
+	}
+
+	// Remove publisher-specific elements and classes
+	doc.Find("*").Each(func(i int, s *goquery.Selection) {
+		// Remove publisher-specific classes but keep semantic ones
+		if class, exists := s.Attr("class"); exists {
+			cleanClasses := []string{}
+			classes := strings.Fields(class)
+			for _, cls := range classes {
+				lowerCls := strings.ToLower(cls)
+				// Remove calibre, sgc-, kobo-, and other publisher-specific classes
+				if !strings.Contains(lowerCls, "calibre") &&
+				   !strings.HasPrefix(lowerCls, "sgc-") &&
+				   !strings.HasPrefix(lowerCls, "kobo-") &&
+				   !strings.HasPrefix(lowerCls, "adobe-") {
+					cleanClasses = append(cleanClasses, cls)
+				}
+			}
+			if len(cleanClasses) > 0 {
+				s.SetAttr("class", strings.Join(cleanClasses, " "))
+			} else {
+				s.RemoveAttr("class")
+			}
+		}
+
+		// Remove publisher-specific IDs
+		if id, exists := s.Attr("id"); exists {
+			lowerID := strings.ToLower(id)
+			if strings.Contains(lowerID, "calibre") ||
+			   strings.Contains(lowerID, "toc") ||
+			   strings.HasPrefix(lowerID, "sgc-") {
+				s.RemoveAttr("id")
+			}
+		}
+
+		// Remove unnecessary style attributes
+		s.RemoveAttr("style")
+	})
+
+	// Remove empty divs and spans
+	doc.Find("div, span").Each(func(i int, s *goquery.Selection) {
+		if strings.TrimSpace(s.Text()) == "" && s.Children().Length() == 0 {
+			s.Remove()
+		}
+	})
+
+	// Extract the body content
+	bodyContent, err := doc.Find("body").Html()
+	if err != nil || bodyContent == "" {
+		// Try to get all content if body is not found
+		bodyContent, _ = doc.Html()
+	}
+
+	// Create the final chapter structure
+	cleanContent := fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <title>%s</title>
+  <link href="../styles/stylesheet.css" rel="stylesheet" type="text/css"/>
+</head>
+
+<body>
+  <h1>%s</h1>
+
+%s
+
+</body>
+
+</html>`, html.EscapeString(title), html.EscapeString(title), bodyContent)
+
+	return cleanContent, nil
+}
+
+// createBasicChapterContent creates basic chapter content as fallback
+func (r *Restructurer) createBasicChapterContent(title, content string) string {
+	// Extract paragraphs using regex as fallback
+	bodyMatch := regexp.MustCompile(`<body[^>]*>(.*?)</body>`).FindStringSubmatch(content)
+	bodyContent := content
+	if len(bodyMatch) > 1 {
+		bodyContent = bodyMatch[1]
+	}
+
+	// Remove Calibre-specific classes and elements
+	bodyContent = regexp.MustCompile(`class="calibre[^"]*"`).ReplaceAllString(bodyContent, "")
+	bodyContent = regexp.MustCompile(`id="calibre[^"]*"`).ReplaceAllString(bodyContent, "")
+	bodyContent = regexp.MustCompile(`<div class="[^"]*calibre[^"]*"[^>]*>`).ReplaceAllString(bodyContent, "")
+	bodyContent = regexp.MustCompile(`</div>`).ReplaceAllString(bodyContent, "")
+
+	// Fix image paths
+	bodyContent = regexp.MustCompile(`src="([^"]*/)([^"/]+\.(jpg|jpeg|png|gif))"`).ReplaceAllString(bodyContent, `src="../images/$2"`)
+
+	return fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <title>%s</title>
+  <link href="../styles/stylesheet.css" rel="stylesheet" type="text/css"/>
+</head>
+
+<body>
+  <h1>%s</h1>
+
+%s
+
+</body>
+
+</html>`, html.EscapeString(title), html.EscapeString(title), bodyContent)
 }
 
 // createTocNCX creates the toc.ncx file
