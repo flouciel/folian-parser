@@ -623,7 +623,7 @@ func (r *Restructurer) createContentOPF(book *parser.Book, oebpsPath string) err
     <dc:date>%s</dc:date>
     <meta name="cover" content="cover-image"/>
     <meta property="dcterms:modified">%s</meta>
-    <meta name="generator">Folian Parser v0.2.4</meta>
+    <meta name="generator">Folian Parser v0.3.2</meta>
     <opf:meta refines="#title" property="title-type">main</opf:meta>
     <opf:meta refines="#title" property="file-as">%s</opf:meta>
     <opf:meta refines="#creator" property="role" scheme="marc:relators">aut</opf:meta>
