@@ -24,11 +24,16 @@ var DebugMode bool
 var EnhancedMode bool
 
 // Restructurer handles the restructuring of EPUB content
-type Restructurer struct{}
+type Restructurer struct{
+	// chapterMapping maps original chapter filenames to new chapter filenames
+	chapterMapping map[string]string
+}
 
 // NewRestructurer creates a new restructurer
 func NewRestructurer() *Restructurer {
-	return &Restructurer{}
+	return &Restructurer{
+		chapterMapping: make(map[string]string),
+	}
 }
 
 // Restructure restructures the EPUB content according to the defined structure
@@ -452,6 +457,9 @@ func (r *Restructurer) processImages(book *parser.Book, basePath, oebpsPath stri
 func (r *Restructurer) processChapters(book *parser.Book, basePath, oebpsPath string) error {
 	chaptersPath := filepath.Join(oebpsPath, "chapters")
 
+	// Build chapter mapping for footnote link transformation
+	r.buildChapterMapping(book)
+
 	// Use enhanced processing if enabled
 	var chaptersToProcess []parser.Chapter
 	if EnhancedMode {
@@ -484,6 +492,9 @@ func (r *Restructurer) processChapters(book *parser.Book, basePath, oebpsPath st
 			processedContent = r.createBasicChapterContent(chapterTitle, chapter.Content)
 		}
 
+		// Transform footnote links in the processed content
+		processedContent = r.transformFootnoteLinks(processedContent)
+
 		// Validate the content is not empty
 		if len(strings.TrimSpace(processedContent)) < 100 {
 			if DebugMode {
@@ -508,6 +519,90 @@ func (r *Restructurer) processChapters(book *parser.Book, basePath, oebpsPath st
 	book.Chapters = chaptersToProcess
 
 	return nil
+}
+
+// buildChapterMapping creates a mapping from original chapter filenames to new chapter filenames
+func (r *Restructurer) buildChapterMapping(book *parser.Book) {
+	// Clear existing mapping
+	r.chapterMapping = make(map[string]string)
+
+	// Build mapping for all chapters in the book
+	for i, chapter := range book.Chapters {
+		// Get the original filename from the manifest
+		if manifestItem, exists := book.Manifest[chapter.ID]; exists {
+			originalFilename := filepath.Base(manifestItem.Href)
+			newFilename := fmt.Sprintf("chapter_%03d.xhtml", i+1)
+			r.chapterMapping[originalFilename] = newFilename
+
+			if DebugMode {
+				fmt.Printf("📝 Mapping: %s -> %s\n", originalFilename, newFilename)
+			}
+		}
+	}
+}
+
+// transformFootnoteLinks transforms footnote links from old chapter references to new ones
+func (r *Restructurer) transformFootnoteLinks(content string) string {
+	// Pattern to match footnote links: href="partXXXX.html#anchor"
+	linkPattern := regexp.MustCompile(`href="([^"]*part[0-9]+\.html)(#[^"]*)"`)
+
+	// Replace all footnote links
+	transformedContent := linkPattern.ReplaceAllStringFunc(content, func(match string) string {
+		// Extract the parts of the match
+		parts := linkPattern.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match // Return original if parsing fails
+		}
+
+		originalFile := parts[1]
+		anchor := parts[2]
+		filename := filepath.Base(originalFile)
+
+		// Look up the new filename in our mapping
+		if newFilename, exists := r.chapterMapping[filename]; exists {
+			newHref := fmt.Sprintf(`href="../chapters/%s%s"`, newFilename, anchor)
+			if DebugMode {
+				fmt.Printf("🔗 Transformed link: %s -> %s\n", match, newHref)
+			}
+			return newHref
+		}
+
+		// If no mapping found, return original
+		return match
+	})
+
+	return transformedContent
+}
+
+// transformFootnoteLinksInDOM transforms footnote links directly in the goquery DOM
+func (r *Restructurer) transformFootnoteLinksInDOM(doc *goquery.Document) {
+	// Find all anchor tags with href attributes
+	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
+		href, exists := s.Attr("href")
+		if !exists {
+			return
+		}
+
+		// Check if this is a footnote link (contains partXXXX.html#)
+		linkPattern := regexp.MustCompile(`^([^#]*part[0-9]+\.html)(#.*)$`)
+		matches := linkPattern.FindStringSubmatch(href)
+
+		if len(matches) == 3 {
+			originalFile := matches[1]
+			anchor := matches[2]
+			filename := filepath.Base(originalFile)
+
+			// Look up the new filename in our mapping
+			if newFilename, exists := r.chapterMapping[filename]; exists {
+				newHref := fmt.Sprintf("../chapters/%s%s", newFilename, anchor)
+				s.SetAttr("href", newHref)
+
+				if DebugMode {
+					fmt.Printf("🔗 DOM transformed link: %s -> %s\n", href, newHref)
+				}
+			}
+		}
+	})
 }
 
 // processChapterContent processes chapter content
@@ -986,6 +1081,16 @@ func (r *Restructurer) createCleanChapterContent(title, content string) (string,
 		}
 	})
 
+	// Transform footnote links
+	r.transformFootnoteLinksInDOM(doc)
+
+	// Remove all existing headings to avoid duplicates
+	headingCount := doc.Find("h1, h2, h3, h4, h5, h6").Length()
+	if DebugMode && headingCount > 0 {
+		fmt.Printf("🧹 Removing %d existing headings from '%s' to avoid duplicates\n", headingCount, title)
+	}
+	doc.Find("h1, h2, h3, h4, h5, h6").Remove()
+
 	// Extract the body content
 	bodyContent, err := doc.Find("body").Html()
 	if err != nil || bodyContent == "" {
@@ -993,7 +1098,10 @@ func (r *Restructurer) createCleanChapterContent(title, content string) (string,
 		bodyContent, _ = doc.Html()
 	}
 
-	// Create the final chapter structure
+	// Create the final chapter structure with a single clean heading
+	if DebugMode {
+		fmt.Printf("➕ Adding clean heading for '%s'\n", title)
+	}
 	cleanContent := fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 
@@ -1032,6 +1140,21 @@ func (r *Restructurer) createBasicChapterContent(title, content string) string {
 	// Fix image paths
 	bodyContent = regexp.MustCompile(`src="([^"]*/)([^"/]+\.(jpg|jpeg|png|gif))"`).ReplaceAllString(bodyContent, `src="../images/$2"`)
 
+	// Transform footnote links
+	bodyContent = r.transformFootnoteLinks(bodyContent)
+
+	// Remove all existing headings to avoid duplicates
+	headingPattern := regexp.MustCompile(`<h[1-6][^>]*>.*?</h[1-6]>`)
+	headingMatches := headingPattern.FindAllString(bodyContent, -1)
+	if DebugMode && len(headingMatches) > 0 {
+		fmt.Printf("🧹 Basic: Removing %d existing headings from '%s' to avoid duplicates\n", len(headingMatches), title)
+	}
+	bodyContent = headingPattern.ReplaceAllString(bodyContent, "")
+
+	// Always add a clean heading after removing duplicates
+	if DebugMode {
+		fmt.Printf("➕ Basic: Adding clean heading for '%s'\n", title)
+	}
 	return fmt.Sprintf(`<?xml version='1.0' encoding='utf-8'?>
 <html xmlns="http://www.w3.org/1999/xhtml">
 

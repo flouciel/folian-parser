@@ -13,6 +13,8 @@
     /* Reset and base styles for consistent rendering across devices */
     * {
       box-sizing: border-box;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
 
     html, body {
@@ -191,11 +193,6 @@
     @page {
       margin: 0;
       size: auto;
-    }
-
-    * {
-      page-break-inside: avoid;
-      break-inside: avoid;
     }
   </style>
 </head>
